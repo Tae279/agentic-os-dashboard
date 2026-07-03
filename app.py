@@ -1,4 +1,5 @@
 import subprocess
+import sys
 import threading
 import queue
 import re
@@ -79,24 +80,25 @@ def reset_runtime():
 
 PREMIUM_CSS = r"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=Prompt:wght@400;500;600&display=swap');
 
 :root {
-    --bg:         #0e0f10;
-    --bg-elev:    #141516;
-    --bg-card:    #1c1b19;
-    --bg-card-hi: #222120;
-    --ring-soft:  rgba(209, 207, 197, 0.18);
-    --ring-mid:   rgba(209, 207, 197, 0.30);
-    --ring-hard:  #b0aea5;
-    --fg:         #faf9f5;
-    --fg-dim:     #b0aea5;
-    --fg-mute:    #87867f;
-    --accent:     #c96442;
-    --accent-soft: rgba(201, 100, 66, 0.12);
-    --warn:       #d9a566;
-    --danger:     #b53333;
-    --good:       #8fb97a;
+    --bg:         #070b14;
+    --bg-elev:    #0b1120;
+    --bg-card:    #0f1726;
+    --bg-card-hi: #16213a;
+    --ring-soft:  rgba(148, 163, 184, 0.18);
+    --ring-mid:   rgba(148, 163, 184, 0.30);
+    --ring-hard:  #94a3b8;
+    --fg:         #e6edf7;
+    --fg-dim:     #94a3b8;
+    --fg-mute:    #5b6b82;
+    --accent:     #3d7bff;
+    --accent-deep: #024ada;   /* DX brand anchor — solid fills / gradients */
+    --accent-soft: rgba(61, 123, 255, 0.12);
+    --warn:       #e0b35c;
+    --danger:     #e5484d;
+    --good:       #46c07a;
 
     /* legacy aliases (keep existing class selectors resolving) */
     --text:          var(--fg);
@@ -106,13 +108,14 @@ PREMIUM_CSS = r"""
     --border-strong: var(--ring-mid);
     --ring-warm:     var(--ring-soft);
     --ring-deep:     var(--ring-mid);
-    --accent-glow:   rgba(201, 100, 66, 0.32);
-    --coral:         #d97757;
+    --accent-glow:   rgba(61, 123, 255, 0.32);
+    --coral:         #5c8dff;
     --amber:         var(--warn);
 }
 
 html, body, [class*="css"] {
-    font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+    /* Mono leads (cockpit identity); Prompt catches Thai glyphs */
+    font-family: 'JetBrains Mono', 'Prompt', 'SF Mono', Menlo, Consolas, monospace;
     color: var(--fg);
 }
 
@@ -128,10 +131,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hero-title {
-    font-family: 'JetBrains Mono', monospace !important;
+    font-family: 'Space Grotesk', 'JetBrains Mono', monospace !important;
     font-size: 2.8rem !important;
-    font-weight: 600;
-    letter-spacing: 0.05em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     line-height: 1;
     color: var(--fg);
     margin: 0 0 0.5rem 0;
@@ -182,6 +185,8 @@ h1, h2, h3, h4, h5, h6 {
     will-change: background-position, transform;
     transition: filter 0.2s ease;
     transform: translateY(-14px);
+    /* sprite art is terracotta; shift to DX blue without re-drawing pixels */
+    filter: hue-rotate(200deg) saturate(1.15);
 }
 @keyframes robot-idle {
     from { background-position:    0  0; }
@@ -190,7 +195,7 @@ h1, h2, h3, h4, h5, h6 {
 .hero-title .mascot:hover {
     background-image: var(--run);
     animation: robot-run 0.55s steps(7) infinite;
-    filter: none;
+    filter: hue-rotate(200deg) saturate(1.15);
     transform: translateY(0);
 }
 @keyframes robot-run {
@@ -288,7 +293,7 @@ h1, h2, h3, h4, h5, h6 {
 .stTextArea textarea {
     font-family: 'JetBrains Mono', monospace !important;
     font-size: 0.82rem !important;
-    background: #1c1b19 !important;
+    background: #0f1726 !important;
     color: var(--fg) !important;
     border: none !important;
     border-radius: 3px !important;
@@ -302,15 +307,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 .stTextArea textarea:hover {
     box-shadow:
-        0 0 0 1px rgba(201, 100, 66, 0.45),
+        0 0 0 1px rgba(61, 123, 255, 0.45),
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
         0 6px 22px rgba(0, 0, 0, 0.4) !important;
 }
 .stTextArea textarea:focus {
-    background: #201e1c !important;
+    background: #121a2e !important;
     box-shadow:
         0 0 0 1px var(--accent),
-        0 0 0 4px rgba(201, 100, 66, 0.12),
+        0 0 0 4px rgba(61, 123, 255, 0.12),
         inset 0 1px 0 rgba(255, 255, 255, 0.04),
         0 8px 28px rgba(0, 0, 0, 0.45) !important;
     outline: none !important;
@@ -337,8 +342,24 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--accent);
     box-shadow: 0 0 0 1px var(--accent);
 }
+
+/* RUN → is the single luminous focal control (Voltura language).
+   Scoped to the FIRST form column so CLEAR (second column) stays quiet. */
+.stFormSubmitButton > button[kind="primaryFormSubmit"] {
+    background: linear-gradient(180deg, #2261f0, var(--accent-deep)) !important;
+    color: #fff !important;
+    text-align: center !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.12em !important;
+    box-shadow: 0 0 0 1px rgba(61, 123, 255, 0.45), 0 6px 22px rgba(2, 74, 218, 0.35) !important;
+}
+.stFormSubmitButton > button[kind="primaryFormSubmit"]:hover {
+    background: linear-gradient(180deg, #3d7bff, #1254e8) !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 1px rgba(120, 163, 255, 0.7), 0 8px 26px rgba(2, 74, 218, 0.5) !important;
+}
 .stButton > button:active, .stFormSubmitButton > button:active {
-    background: rgba(201, 100, 66, 0.1) !important;
+    background: rgba(61, 123, 255, 0.1) !important;
     color: var(--accent) !important;
     box-shadow: 0 0 0 1px var(--accent) !important;
 }
@@ -407,8 +428,8 @@ hr.chapter::after { content: none; }
     animation: hero-pulse 2.4s ease-in-out infinite;
 }
 .hero-card.error {
-    background: rgba(181, 51, 51, 0.05);
-    box-shadow: 0 0 0 1px rgba(181, 51, 51, 0.55);
+    background: rgba(229, 72, 77, 0.05);
+    box-shadow: 0 0 0 1px rgba(229, 72, 77, 0.55);
 }
 .hero-card.error .hero-label { color: var(--danger); }
 .hero-card.error .hero-headline em { color: var(--danger); }
@@ -419,8 +440,8 @@ hr.chapter::after { content: none; }
     padding: 0.55rem 0.75rem;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
-    color: #e8b8b8;
-    box-shadow: 0 0 0 1px rgba(181, 51, 51, 0.35);
+    color: #f0b6ba;
+    box-shadow: 0 0 0 1px rgba(229, 72, 77, 0.35);
     white-space: pre-wrap;
     word-break: break-word;
     max-height: 200px;
@@ -446,7 +467,7 @@ hr.chapter::after { content: none; }
 }
 @keyframes hero-pulse {
     0%, 100% { box-shadow: 0 0 0 1px var(--accent); }
-    50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(201, 100, 66, 0.28); }
+    50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 18px rgba(61, 123, 255, 0.28); }
 }
 
 .hero-label {
@@ -525,13 +546,13 @@ hr.chapter::after { content: none; }
 }
 .status-chip.running {
     color: var(--accent);
-    background: rgba(201, 100, 66, 0.06);
+    background: rgba(61, 123, 255, 0.06);
     box-shadow: 0 0 0 1px var(--accent);
     animation: chip-pulse 2.4s ease-in-out infinite;
 }
 @keyframes chip-pulse {
     0%, 100% { box-shadow: 0 0 0 1px var(--accent); }
-    50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 10px rgba(201, 100, 66, 0.3); }
+    50%      { box-shadow: 0 0 0 1px var(--accent), 0 0 10px rgba(61, 123, 255, 0.3); }
 }
 
 .activity-feed {
@@ -566,14 +587,14 @@ hr.chapter::after { content: none; }
     margin: 0.2rem 0.3rem 0.1rem 0;
     border: none;
     border-radius: 2px;
-    background: rgba(201, 100, 66, 0.05);
-    box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.3);
+    background: rgba(61, 123, 255, 0.05);
+    box-shadow: 0 0 0 1px rgba(61, 123, 255, 0.3);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     transition: box-shadow 0.12s, background 0.12s;
 }
 .obsidian-link:hover, .meta-link:hover {
-    background: rgba(201, 100, 66, 0.1);
+    background: rgba(61, 123, 255, 0.1);
     box-shadow: 0 0 0 1px var(--accent);
 }
 .meta-link {
@@ -590,8 +611,8 @@ hr.chapter::after { content: none; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(209, 207, 197, 0.12); border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: rgba(209, 207, 197, 0.22); }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.12); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.22); }
 
 .stream-output {
     background: var(--bg-elev);
@@ -746,12 +767,12 @@ hr.chapter::after { content: none; }
 
 /* Danger button variant (cancel) */
 .cancel-btn .stButton > button {
-    background: rgba(181, 51, 51, 0.06) !important;
-    box-shadow: 0 0 0 1px rgba(181, 51, 51, 0.35) !important;
+    background: rgba(229, 72, 77, 0.06) !important;
+    box-shadow: 0 0 0 1px rgba(229, 72, 77, 0.35) !important;
     color: var(--danger) !important;
 }
 .cancel-btn .stButton > button:hover {
-    background: rgba(181, 51, 51, 0.14) !important;
+    background: rgba(229, 72, 77, 0.14) !important;
     box-shadow: 0 0 0 1px var(--danger) !important;
     color: #fff !important;
 }
@@ -802,12 +823,12 @@ hr.chapter::after { content: none; }
     overflow: visible;
     padding: 0.4rem 0.85rem;
     color: var(--fg);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px rgba(201, 100, 66, 0.08);
-    background: rgba(201, 100, 66, 0.04);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 0 3px rgba(61, 123, 255, 0.08);
+    background: rgba(61, 123, 255, 0.04);
 }
 .quicknav a.qn-claude:hover {
-    background: rgba(201, 100, 66, 0.09);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(201, 100, 66, 0.35);
+    background: rgba(61, 123, 255, 0.09);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(61, 123, 255, 0.35);
 }
 .quicknav a.qn-claude .qn-arrow {
     color: var(--accent);
@@ -910,7 +931,7 @@ hr.chapter::after { content: none; }
 }
 .mcp-dot.ready, .mcp-dot.connected {
     background: var(--accent);
-    box-shadow: 0 0 4px rgba(201, 100, 66, 0.55);
+    box-shadow: 0 0 4px rgba(61, 123, 255, 0.55);
 }
 .mcp-dot.needs_auth, .mcp-dot.needs-auth { background: var(--warn); }
 .mcp-dot.failed, .mcp-dot.error { background: var(--danger); }
@@ -991,12 +1012,12 @@ hr.chapter::after { content: none; }
     pointer-events: none;
     z-index: 0;
     background-image:
-        radial-gradient(ellipse 78% 62% at 50% 55%, rgba(201, 100, 66, 0.055) 0%, rgba(201, 100, 66, 0) 72%),
+        radial-gradient(ellipse 78% 62% at 50% 55%, rgba(61, 123, 255, 0.055) 0%, rgba(61, 123, 255, 0) 72%),
         linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.18) 100%),
-        repeating-linear-gradient(90deg, transparent 0 59px, rgba(209, 207, 197, 0.05) 59px 60px),
-        repeating-linear-gradient(0deg,  transparent 0 39px, rgba(209, 207, 197, 0.05) 39px 40px),
-        repeating-linear-gradient(90deg, transparent 0 11px, rgba(209, 207, 197, 0.022) 11px 12px),
-        repeating-linear-gradient(0deg,  transparent 0 7px,  rgba(209, 207, 197, 0.022) 7px 8px);
+        repeating-linear-gradient(90deg, transparent 0 59px, rgba(148, 163, 184, 0.05) 59px 60px),
+        repeating-linear-gradient(0deg,  transparent 0 39px, rgba(148, 163, 184, 0.05) 39px 40px),
+        repeating-linear-gradient(90deg, transparent 0 11px, rgba(148, 163, 184, 0.022) 11px 12px),
+        repeating-linear-gradient(0deg,  transparent 0 7px,  rgba(148, 163, 184, 0.022) 7px 8px);
 }
 .activity-svg {
     display: block;
@@ -1045,7 +1066,7 @@ hr.chapter::after { content: none; }
 .gauge-reset, .cpt-gauge-reset { color: var(--fg-mute); font-size: 0.56rem; letter-spacing: 0.08em; }
 .gauge-track, .cpt-gauge-track {
     height: 10px;
-    background: rgba(209, 207, 197, 0.08);
+    background: rgba(148, 163, 184, 0.08);
     border-radius: 0;
     overflow: hidden;
     margin-bottom: 0.35rem;
@@ -1104,7 +1125,7 @@ hr.chapter::after { content: none; }
     background: transparent;
     box-shadow: 0 0 0 1px var(--ring-soft);
 }
-.gauge-delta.up, .cpt-gauge-delta.up         { color: var(--accent); box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.40); background: rgba(201, 100, 66, 0.06); }
+.gauge-delta.up, .cpt-gauge-delta.up         { color: var(--accent); box-shadow: 0 0 0 1px rgba(61, 123, 255, 0.40); background: rgba(61, 123, 255, 0.06); }
 .gauge-delta.down, .cpt-gauge-delta.down     { color: var(--fg-dim); box-shadow: 0 0 0 1px var(--ring-soft); background: transparent; }
 .gauge-delta.neutral, .cpt-gauge-delta.neutral { color: var(--fg-mute); }
 
@@ -1138,7 +1159,7 @@ hr.chapter::after { content: none; }
 }
 .cpt-forecast-track {
     height: 18px;
-    background: rgba(209, 207, 197, 0.06);
+    background: rgba(148, 163, 184, 0.06);
     box-shadow: inset 0 0 0 1px var(--ring-soft);
     position: relative;
     margin: 0.5rem 0 0.3rem;
@@ -1146,15 +1167,15 @@ hr.chapter::after { content: none; }
 .cpt-forecast-elapsed {
     position: absolute;
     left: 0; top: 0; bottom: 0;
-    background: rgba(201, 100, 66, 0.35);
+    background: rgba(61, 123, 255, 0.35);
     border-right: 1px solid var(--accent);
 }
 .cpt-forecast-proj {
     position: absolute;
     top: 0; bottom: 0;
     background: repeating-linear-gradient(45deg,
-        rgba(201, 100, 66, 0.12) 0 5px,
-        rgba(201, 100, 66, 0.28) 5px 10px);
+        rgba(61, 123, 255, 0.12) 0 5px,
+        rgba(61, 123, 255, 0.28) 5px 10px);
     border-right: 1px dashed var(--accent);
 }
 .cpt-forecast-now {
@@ -1251,13 +1272,13 @@ hr.chapter::after { content: none; }
 }
 .cpt-verb.created {
     color: var(--accent);
-    box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.35);
-    background: rgba(201, 100, 66, 0.08);
+    box-shadow: 0 0 0 1px rgba(61, 123, 255, 0.35);
+    background: rgba(61, 123, 255, 0.08);
 }
 .cpt-verb.appended {
     color: var(--warn);
-    box-shadow: 0 0 0 1px rgba(217, 165, 102, 0.35);
-    background: rgba(217, 165, 102, 0.06);
+    box-shadow: 0 0 0 1px rgba(224, 179, 92, 0.35);
+    background: rgba(224, 179, 92, 0.06);
 }
 .cpt-verb.updated { color: var(--fg-dim); }
 .cpt-verb.linked {
@@ -1557,11 +1578,29 @@ def save_run_output(label: str, prompt: str, output: str, meta: dict | None = No
 
 
 def obsidian_uri(vault_path: Path) -> str:
-    rel = vault_path.relative_to(VAULT_PATH).as_posix()
+    # Dashboard-local files (daily notes, runs, drafts under DASHBOARD_DATA)
+    # live OUTSIDE the Obsidian vault — link those as file:// instead of
+    # crashing on relative_to().
+    try:
+        rel = vault_path.relative_to(VAULT_PATH).as_posix()
+    except ValueError:
+        return f"file://{quote(str(vault_path))}"
     return f"obsidian://open?vault={quote(VAULT_NAME)}&file={quote(rel)}"
 
 
 def open_claude_terminal() -> None:
+    """Open an interactive claude session in the vault — cross-platform.
+    Original code was Windows-only (CREATE_NEW_CONSOLE doesn't exist on macOS)."""
+    if sys.platform == "darwin":
+        cmd = f'cd \\"{VAULT_PATH}\\" && \\"{CLAUDE_CLI}\\"'
+        script = (
+            'tell application "Terminal"\n'
+            f'  do script "{cmd}"\n'
+            "  activate\n"
+            "end tell"
+        )
+        subprocess.Popen(["osascript", "-e", script])
+        return
     wt = Path(r"C:\Users\Chase\AppData\Local\Microsoft\WindowsApps\wt.exe")
     if wt.exists():
         subprocess.Popen(
@@ -1786,7 +1825,17 @@ def activity_cumulative(days: int = 30, backfill_demo: bool = True) -> pd.DataFr
     for d in per_day:
         per_day[d] += int(ledger.get(d, 0))
 
-    if backfill_demo:
+    # Real Claude Code sessions (via session-meta or ccusage fallback)
+    for m in _read_session_metas():
+        t = _parse_session_time(m)
+        if t is not None:
+            k = t.date().isoformat()
+            if k in per_day:
+                per_day[k] += 1
+
+    # Only seed synthetic demo data when there is NO real activity at all —
+    # a founder dashboard must not show fake history on top of real usage.
+    if backfill_demo and sum(per_day.values()) == 0:
         keys = list(per_day.keys())
         n = len(keys)
         rng = random.Random(0xA6E8)
@@ -1885,18 +1934,105 @@ def fmt_time_until(ts: int) -> str:
     return f"{m}m"
 
 
+def _notify_macos(title: str, message: str) -> None:
+    """Fire a macOS notification. Best-effort — never raises."""
+    try:
+        subprocess.run(
+            ["osascript", "-e", f'display notification "{message}" with title "{title}"'],
+            capture_output=True, timeout=5,
+        )
+    except Exception:
+        pass
+
+
+QUOTA_ALERT_STATE = CACHE_DIR / "quota-alert.json"
+
+
+def _quota_guard_check(pct: float) -> None:
+    """Fire one macOS notification per 5h block once usage crosses 80%.
+
+    De-dupe key = the current block's start hour (floor to 5h boundary from
+    midnight), so a rerun-heavy Streamlit session doesn't spam notifications.
+    """
+    if pct < 80:
+        return
+    block_key = datetime.now().replace(minute=0, second=0, microsecond=0).strftime("%Y-%m-%d-%H")
+    try:
+        state = json.loads(QUOTA_ALERT_STATE.read_text(encoding="utf-8")) if QUOTA_ALERT_STATE.exists() else {}
+    except Exception:
+        state = {}
+    if state.get("block") == block_key:
+        return
+    _notify_macos("Agentic OS", f"⚠️ 5-hour quota at {pct:.0f}% — approaching cap")
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+        QUOTA_ALERT_STATE.write_text(json.dumps({"block": block_key}), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _ccusage_metas() -> list[dict]:
+    """Fallback usage source: derive session-meta-shaped dicts from ccusage.
+
+    Newer Claude Code versions don't write ~/.claude/usage-data/session-meta/.
+    ccusage streams the real transcripts (~/.claude/projects/**.jsonl) and
+    returns 5-hour billing blocks; each block maps to one pseudo-session.
+    Cached 5 minutes — ccusage takes a few seconds on large histories.
+    """
+    cache = CACHE_DIR / "ccusage-metas.json"
+    try:
+        if cache.exists() and time.time() - cache.stat().st_mtime < 300:
+            return json.loads(cache.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    ccusage_bin = shutil.which("ccusage") or str(
+        Path.home() / ".npm-global" / "bin" / "ccusage"
+    )
+    metas: list[dict] = []
+    try:
+        res = subprocess.run(
+            [ccusage_bin, "blocks", "--json"],
+            capture_output=True, text=True, timeout=120,
+        )
+        for b in json.loads(res.stdout).get("blocks", []):
+            if b.get("isGap"):
+                continue
+            tc = b.get("tokenCounts", {})
+            try:
+                # startTime is UTC ISO; store as naive LOCAL time so the
+                # existing _parse_session_time comparison stays correct.
+                dt = datetime.fromisoformat(
+                    b["startTime"].replace("Z", "+00:00")
+                ).astimezone()
+                start_local = dt.replace(tzinfo=None).isoformat()
+            except Exception:
+                continue
+            metas.append({
+                "start_time": start_local,
+                "input_tokens": int(tc.get("inputTokens") or 0),
+                "output_tokens": int(tc.get("outputTokens") or 0),
+            })
+        CACHE_DIR.mkdir(exist_ok=True)
+        cache.write_text(json.dumps(metas), encoding="utf-8")
+    except Exception:
+        return []
+    return metas
+
+
 def _read_session_metas() -> list[dict]:
     """Read all Claude Code per-session usage meta files."""
-    if not SESSION_META_DIR.exists():
-        return []
     out = []
-    for f in SESSION_META_DIR.glob("*.json"):
-        try:
-            d = json.loads(f.read_text(encoding="utf-8", errors="replace"))
-            if "start_time" in d and ("input_tokens" in d or "output_tokens" in d):
-                out.append(d)
-        except Exception:
-            continue
+    if SESSION_META_DIR.exists():
+        for f in SESSION_META_DIR.glob("*.json"):
+            try:
+                d = json.loads(f.read_text(encoding="utf-8", errors="replace"))
+                if "start_time" in d and ("input_tokens" in d or "output_tokens" in d):
+                    out.append(d)
+            except Exception:
+                continue
+    if not out:
+        out = _ccusage_metas()
     return out
 
 
@@ -1996,6 +2132,37 @@ def fmt_cost(c: float) -> str:
     if c >= 10:
         return f"${c:.1f}"
     return f"${c:.2f}"
+
+
+def _ccusage_daily() -> list[dict]:
+    """Fetch `ccusage daily --json` (real AI spend), cached 10 minutes.
+
+    Shape verified live: {"daily": [{"period": "YYYY-MM-DD", "totalCost": float,
+    "totalTokens": int, ...}], "totals": {...}}. Empty list on any failure —
+    caller renders a graceful empty state.
+    """
+    cache = CACHE_DIR / "ccusage-daily.json"
+    try:
+        if cache.exists() and time.time() - cache.stat().st_mtime < 600:
+            return json.loads(cache.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    ccusage_bin = shutil.which("ccusage") or str(
+        Path.home() / ".npm-global" / "bin" / "ccusage"
+    )
+    daily: list[dict] = []
+    try:
+        res = subprocess.run(
+            [ccusage_bin, "daily", "--json"],
+            capture_output=True, text=True, timeout=120,
+        )
+        daily = json.loads(res.stdout).get("daily", [])
+        CACHE_DIR.mkdir(exist_ok=True)
+        cache.write_text(json.dumps(daily), encoding="utf-8")
+    except Exception:
+        return []
+    return daily
 
 
 # ═══════════════════════════════════════════════════════════
@@ -2110,6 +2277,58 @@ def cancel_current_run():
     RT["done"] = True
 
 
+_hermes_send_cmd_cache: list | None = None  # None = not probed yet, [] = no send command found
+
+
+def _hermes_send_command() -> list | None:
+    """Probe `hermes --help` once for a message/send/notify subcommand.
+
+    Cached in a module-level global for the process lifetime — ponytail:
+    one process = one probe, restart the dashboard to re-probe.
+    """
+    global _hermes_send_cmd_cache
+    if _hermes_send_cmd_cache is not None:
+        return _hermes_send_cmd_cache or None
+
+    hermes_bin = shutil.which("hermes")
+    if not hermes_bin:
+        _hermes_send_cmd_cache = []
+        return None
+    try:
+        res = subprocess.run([hermes_bin, "--help"], capture_output=True, text=True, timeout=10)
+        help_text = res.stdout + res.stderr
+    except Exception:
+        _hermes_send_cmd_cache = []
+        return None
+
+    # Look for a clear send/message/notify subcommand in the listed commands.
+    for cmd in ("send", "message", "notify"):
+        if re.search(rf"^\s*{cmd}\b", help_text, re.MULTILINE):
+            _hermes_send_cmd_cache = [hermes_bin, cmd]
+            return _hermes_send_cmd_cache
+    _hermes_send_cmd_cache = []
+    return None
+
+
+def _notify_run_done(label: str, ok: bool, cost: float | None) -> None:
+    """Notify on skill-run completion: macOS notification (always) + Telegram
+    via hermes (best-effort). Never let notification failures break the run flow.
+    """
+    cost_txt = fmt_cost(_to_float(cost)) if cost else "$0.00"
+    if ok:
+        message = f"✅ {label} เสร็จแล้ว · {cost_txt}"
+    else:
+        message = f"❌ {label} ล้มเหลว"
+    _notify_macos("Agentic OS", message)
+
+    try:
+        send_cmd = _hermes_send_command()
+        if send_cmd:
+            subprocess.run(send_cmd + ["-t", "telegram", message, "-q"], capture_output=True, timeout=10)
+    except Exception:
+        pass
+
+
 def finalize_run_if_done(label: str, prompt: str):
     """Called when RT['done']==True. Persists output, resets session state."""
     if RT.get("cancelled"):
@@ -2121,6 +2340,7 @@ def finalize_run_if_done(label: str, prompt: str):
         st.session_state.last_output = RT.get("text", "").strip()
         st.session_state.last_saved_path = None
         log_run(label, ok=False)
+        _notify_run_done(label, ok=False, cost=None)
     else:
         output = RT.get("text", "").strip() or "(no text output)"
         st.session_state.last_output = output
@@ -2135,6 +2355,7 @@ def finalize_run_if_done(label: str, prompt: str):
         st.session_state.last_cost = RT.get("cost_usd")
         st.session_state.last_tokens = (RT.get("tokens_in"), RT.get("tokens_out"))
         log_run(label, ok=True)
+        _notify_run_done(label, ok=True, cost=RT.get("cost_usd"))
 
     st.session_state.running = False
     st.session_state.active_skill = None
@@ -2288,9 +2509,12 @@ def render_gauge(
     stat_max: str,
     stat_sub: str,
     delta: tuple[str, float, str] | None = None,
+    danger_threshold_pct: float | None = None,
 ) -> str:
     pct = min(100.0, (used / limit * 100.0) if limit else 0.0)
-    klass = _gauge_class(pct)
+    # danger_threshold_pct overrides the default 90/70 _gauge_class bands —
+    # used by the 5-hour quota guard, which alerts earlier (80%).
+    klass = "danger" if danger_threshold_pct is not None and pct >= danger_threshold_pct else _gauge_class(pct)
     delta_html = ""
     if delta is not None:
         arrow, pct_d, dklass = delta
@@ -2343,6 +2567,9 @@ _5h_delta = compute_delta(_5h_cur, _5h_pri)
 _wk_delta = compute_delta(_wk_cur, _wk_pri)
 _rt_delta = compute_delta(_rt_today, _rt_yday)
 
+_five_h_pct = min(100.0, (five_h_tokens / LIMITS["five_hour_tokens"] * 100.0) if LIMITS["five_hour_tokens"] else 0.0)
+_quota_guard_check(_five_h_pct)  # fires ≤1 macOS notification per 5h block at ≥80%
+
 m1, m2, m3 = st.columns(3, gap="small")
 with m1:
     st.markdown(
@@ -2355,6 +2582,7 @@ with m1:
             fmt_tokens(LIMITS["five_hour_tokens"]),
             f"· {usage['five_hour']['sessions']} sessions",
             delta=_5h_delta,
+            danger_threshold_pct=80,
         ),
         unsafe_allow_html=True,
     )
@@ -2442,9 +2670,9 @@ def _build_activity_svg(df: pd.DataFrame) -> str:
        preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="activityFill" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#c96442" stop-opacity="0.48"/>
-        <stop offset="60%"  stop-color="#c96442" stop-opacity="0.14"/>
-        <stop offset="100%" stop-color="#c96442" stop-opacity="0"/>
+        <stop offset="0%"   stop-color="#3d7bff" stop-opacity="0.48"/>
+        <stop offset="60%"  stop-color="#3d7bff" stop-opacity="0.14"/>
+        <stop offset="100%" stop-color="#3d7bff" stop-opacity="0"/>
       </linearGradient>
       <filter id="pulseGlow" x="-200%" y="-200%" width="500%" height="500%">
         <feGaussianBlur stdDeviation="2.4" result="b1"/>
@@ -2468,19 +2696,19 @@ def _build_activity_svg(df: pd.DataFrame) -> str:
                dur="6s" repeatCount="indefinite"/>
     </path>
     <path id="activityPath" d="{line_d}" fill="none"
-          stroke="#c96442" stroke-width="1.6"
+          stroke="#3d7bff" stroke-width="1.6"
           stroke-linejoin="round" stroke-linecap="round"
           vector-effect="non-scaling-stroke"
           filter="url(#lineGlow)"/>
     <path id="activityLoop" d="{loop_d}" fill="none" stroke="none"/>
-    <circle r="4.2" fill="#ffd3b5" filter="url(#pulseGlow)" opacity="0.95">
+    <circle r="4.2" fill="#b8ccff" filter="url(#pulseGlow)" opacity="0.95">
       <animateMotion dur="7s" repeatCount="indefinite" rotate="auto">
         <mpath href="#activityLoop"/>
       </animateMotion>
       <animate attributeName="opacity" values="0.35;1;0.35"
                dur="1.4s" repeatCount="indefinite"/>
     </circle>
-    <circle r="2" fill="#fff3e6">
+    <circle r="2" fill="#e8efff">
       <animateMotion dur="7s" repeatCount="indefinite" rotate="auto">
         <mpath href="#activityLoop"/>
       </animateMotion>
@@ -2572,26 +2800,26 @@ with col_side:
         go.Bar(
             x=_bar_labels,
             y=_bar_vals,
-            marker=dict(color="#c96442", line=dict(width=0)),
+            marker=dict(color="#3d7bff", line=dict(width=0)),
             hovertemplate="<b>%{x}</b><br>%{y} runs<extra></extra>",
         )
     )
     _barfig.update_layout(
         height=120,
         margin=dict(l=20, r=20, t=10, b=28),
-        paper_bgcolor="#1c1b19",
+        paper_bgcolor="#0f1726",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="JetBrains Mono, monospace", size=9, color="#b0aea5"),
+        font=dict(family="JetBrains Mono, monospace", size=9, color="#94a3b8"),
         showlegend=False,
         bargap=0.32,
         hoverlabel=dict(
-            bgcolor="#0e0f10",
-            bordercolor="#c96442",
-            font=dict(family="JetBrains Mono, monospace", color="#faf9f5", size=10),
+            bgcolor="#070b14",
+            bordercolor="#3d7bff",
+            font=dict(family="JetBrains Mono, monospace", color="#e6edf7", size=10),
         ),
         xaxis=dict(
             showgrid=False, zeroline=False, showline=False,
-            tickfont=dict(color="#b0aea5", size=9),
+            tickfont=dict(color="#94a3b8", size=9),
         ),
         yaxis=dict(
             showgrid=False, zeroline=False, showline=False, showticklabels=False,
@@ -2681,6 +2909,78 @@ with col_side:
         '</div>',
         unsafe_allow_html=True,
     )
+
+    # ——— Cost card (real AI spend via ccusage) ———
+    _daily_usage = _ccusage_daily()
+    if _daily_usage:
+        _by_date = {d.get("period"): _to_float(d.get("totalCost")) for d in _daily_usage}
+        _today_key = date.today().isoformat()
+        _yday_key = (date.today() - timedelta(days=1)).isoformat()
+        _cost_today = _by_date.get(_today_key, 0.0)
+        _cost_yday = _by_date.get(_yday_key, 0.0)
+
+        _last7 = [date.today() - timedelta(days=i) for i in range(6, -1, -1)]
+        _cost_labels = [d.strftime("%a") for d in _last7]
+        _cost_vals = [_by_date.get(d.isoformat(), 0.0) for d in _last7]
+        _cost_7d_total = sum(_cost_vals)
+
+        st.markdown(
+            '<div class="cpt-forecast">'
+            '<div class="cpt-forecast-head">value · <em>api-equivalent</em></div>'
+            '<div class="gauge-stats" style="margin:0.3rem 0 0.1rem;">'
+            f'<span>{fmt_cost(_cost_today)}</span>'
+            '<span class="gauge-sub">today</span>'
+            '</div>'
+            '<div class="cpt-forecast-legend">'
+            f'<span>yesterday · {fmt_cost(_cost_yday)}</span>'
+            f'<span>7d · {fmt_cost(_cost_7d_total)}</span>'
+            '</div>'
+            # Max plan = flat monthly fee; this shows what the same usage
+            # WOULD cost on API pricing (value extracted), not actual spend.
+            '<div class="gauge-sub" style="margin-top:0.25rem;">'
+            'มูลค่างานเทียบราคา API — จ่ายจริงคือค่า Max รายเดือน</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        _costfig = go.Figure()
+        _costfig.add_trace(
+            go.Bar(
+                x=_cost_labels,
+                y=_cost_vals,
+                marker=dict(color="#3d7bff", line=dict(width=0)),
+                hovertemplate="<b>%{x}</b><br>$%{y:.2f}<extra></extra>",
+            )
+        )
+        _costfig.update_layout(
+            height=90,
+            margin=dict(l=20, r=20, t=6, b=22),
+            paper_bgcolor="#0f1726",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(family="JetBrains Mono, monospace", size=9, color="#94a3b8"),
+            showlegend=False,
+            bargap=0.32,
+            hoverlabel=dict(
+                bgcolor="#070b14",
+                bordercolor="#3d7bff",
+                font=dict(family="JetBrains Mono, monospace", color="#e6edf7", size=10),
+            ),
+            xaxis=dict(
+                showgrid=False, zeroline=False, showline=False,
+                tickfont=dict(color="#94a3b8", size=9),
+            ),
+            yaxis=dict(
+                showgrid=False, zeroline=False, showline=False, showticklabels=False,
+            ),
+        )
+        st.plotly_chart(_costfig, use_container_width=True, config={"displayModeBar": False})
+    else:
+        st.markdown(
+            '<div class="cpt-forecast">'
+            '<div class="cpt-forecast-head">value · <em>api-equivalent</em></div>'
+            '<div class="gauge-sub" style="margin-top:0.3rem;">ccusage unavailable</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     # ——— Vault pulse ———
     pulse_items = list_vault_pulse(6)
@@ -2926,6 +3226,7 @@ with col_main:
                 submit = st.form_submit_button(
                     "run →",
                     use_container_width=True,
+                    type="primary",
                 )
             with b2:
                 cleared = st.form_submit_button(
