@@ -1312,18 +1312,28 @@ body { opacity: 1; transition: opacity 0.18s ease-out; }
    so the *element container* that :has() the marker gets pinned — the
    button inside it just fills that fixed box. Simpler than cross-sibling
    selectors, which break across Streamlit DOM-wrapper version changes. */
-div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) {
+/* Streamlit wraps markdown in stElementContainer, so the old `> div >` child
+   selector never matched → FAB rendered inline top-left. Pin the button's own
+   element container instead: it is the marker's immediate NEXT SIBLING —
+   exactly one match, ancestors can't match a sibling combinator. */
+div[data-testid="stElementContainer"]:has(.fab-chat-anchor) {
+    display: none;   /* marker renders nothing */
+}
+div[data-testid="stElementContainer"]:has(.fab-chat-anchor)
+  + div[data-testid="stElementContainer"] {
     position: fixed; bottom: 1.6rem; right: 1.6rem; z-index: 999;
     width: auto !important;
 }
-div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) [data-testid="stButton"] button {
+div[data-testid="stElementContainer"]:has(.fab-chat-anchor)
+  + div[data-testid="stElementContainer"] [data-testid="stButton"] button {
     width: 52px; height: 52px; border-radius: 50%;
     background: linear-gradient(160deg, var(--accent), var(--accent-deep));
     border: 1px solid rgba(255,255,255,.15);
     box-shadow: 0 6px 24px rgba(2,74,218,.45);
-    font-size: 1.3rem; padding: 0;
+    font-size: 1.3rem; padding: 0; color: #fff;
 }
-div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) [data-testid="stButton"] button:hover {
+div[data-testid="stElementContainer"]:has(.fab-chat-anchor)
+  + div[data-testid="stElementContainer"] [data-testid="stButton"] button:hover {
     transform: scale(1.06);
 }
 </style>
