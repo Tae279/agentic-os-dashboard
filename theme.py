@@ -1306,6 +1306,26 @@ hr.chapter::after { content: none; }
 
 /* Reveal body after PREMIUM_CSS parses — overrides pre-hide from earlier inline style. */
 body { opacity: 1; transition: opacity 0.18s ease-out; }
+
+/* ─── Floating 💬 chat button (fixed bottom-right, both pages) ───
+   ponytail: the .fab-chat-anchor marker + button share one st.container(),
+   so the *element container* that :has() the marker gets pinned — the
+   button inside it just fills that fixed box. Simpler than cross-sibling
+   selectors, which break across Streamlit DOM-wrapper version changes. */
+div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) {
+    position: fixed; bottom: 1.6rem; right: 1.6rem; z-index: 999;
+    width: auto !important;
+}
+div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) [data-testid="stButton"] button {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: linear-gradient(160deg, var(--accent), var(--accent-deep));
+    border: 1px solid rgba(255,255,255,.15);
+    box-shadow: 0 6px 24px rgba(2,74,218,.45);
+    font-size: 1.3rem; padding: 0;
+}
+div[data-testid="stVerticalBlock"]:has(> div > .fab-chat-anchor) [data-testid="stButton"] button:hover {
+    transform: scale(1.06);
+}
 </style>
 """
 

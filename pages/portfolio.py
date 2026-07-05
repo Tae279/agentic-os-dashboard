@@ -17,15 +17,22 @@ from pathlib import Path
 import streamlit as st
 
 import theme
+import chat_backend
 from config import CLAUDE_CLI, DASHBOARD_DATA
+from registry import parse_registry, parse_long_term, newest_entry_for, scan_decision_inbox
 
 st.set_page_config(page_title="Portfolio · Agentic OS", page_icon="⌗", layout="wide")
 theme.inject()
 
-REGISTRY = Path.home() / "Documents" / "DX" / "agent-context" / "project-registry.md"
-LONG_TERM = Path.home() / ".dx-claude-config" / "memory" / "long-term.md"
+# ─── Floating 💬 chat button (shared session_state + backend with Command page) ───
+with st.container():
+    st.markdown('<div class="fab-chat-anchor"></div>', unsafe_allow_html=True)
+    if st.button("💬", key="fab_chat_btn", help="คุยกับ Claude"):
+        chat_backend.render_chat_dialog()
+
 ARTIFACTS = Path.home() / "Documents" / "DX" / "artifacts"
 RECO_FILE = DASHBOARD_DATA / "recommendations.json"
+REPO_HANDOFF = Path(__file__).parent.parent / "HANDOFF.md"
 
 # ── สถานะ: เดาจากคำใน entry ล่าสุดของโปรเจค ──
 _DONE = ("complete", "closed", "done", "100%", "shipped", "เสร็จ")
@@ -39,104 +46,6 @@ def _status(text: str) -> tuple[str, str]:
     if any(w in low for w in _DONE):
         return "✅", "done"
     return "🔵", "active"
-
-
-@st.cache_data(ttl=600)
-def parse_registry() -> list[dict]:
-    """อ่านตาราง 'Core active workstreams' จาก project-registry.md"""
-    if not REGISTRY.exists():
-        return []
-    rows = []
-    in_core = False
-    for line in REGISTRY.read_text(encoding="utf-8").splitlines():
-        if line.startswith("## Core active"):
-            in_core = True
-            continue
-        if in_core and line.startswith("## "):
-            break
-        if in_core and line.startswith("|") and "---" not in line:
-            cells = [c.strip() for c in line.strip("|").split("|")]
-            if len(cells) < 8 or cells[0] in ("Project", ""):
-                continue
-            rows.append({
-                "name": cells[0],
-                "tag": cells[1].strip("`"),
-                "aliases": cells[2],
-                "docs": cells[3].strip("`"),
-                "code": cells[4].strip("`"),
-                "priority": cells[6],
-                "notes": cells[7],
-            })
-    return rows
-
-
-@st.cache_data(ttl=600)
-def parse_long_term() -> list[dict]:
-    """แตก long-term.md เป็น entry: date, title, summary, tags, next"""
-    if not LONG_TERM.exists():
-        return []
-    text = LONG_TERM.read_text(encoding="utf-8")
-    # ตัด Archive ทิ้ง — เอาเฉพาะบันทึกล่าสุด
-    text = text.split("## Archive")[0]
-    entries = []
-    parts = re.split(r"^### \[(\d{4}-\d{2}-\d{2})\] (.+)$", text, flags=re.M)
-    # parts = [pre, date1, title1, body1, date2, title2, body2, ...]
-    for i in range(1, len(parts) - 2, 3):
-        d, title, body = parts[i], parts[i + 1], parts[i + 2]
-        if title.startswith("YYYY"):  # ตัวอย่าง format ในหัวไฟล์
-            continue
-        tags = ""
-        summary = ""
-        nxt = ""
-        for m in re.finditer(r"\*\*(สรุป|Tags|Next):\*\*\s*(.+)", body):
-            if m.group(1) == "สรุป":
-                summary = m.group(2)
-            elif m.group(1) == "Tags":
-                tags = m.group(2)
-            elif m.group(1) == "Next":
-                nxt = m.group(2)
-        entries.append({
-            "date": d, "title": title.strip(),
-            "summary": summary, "tags": tags, "next": nxt,
-            "blob": (title + " " + tags).lower(),
-        })
-    return entries
-
-
-_GENERIC = {"os", "ai", "line", "hub", "rms", "centroid", "mt5", "c24", "academy", "agent"}
-
-# bridge registry tag → memory tags ที่ entry ใช้จริง (memory เขียนคนละ tag กับ registry)
-# ป้องกัน false-match ข้ามโปรเจค (bestonfx family). ตัวแรกที่เจอ = ชนะ, list เรียงเฉพาะ→กว้าง
-MATCH_TAGS = {
-    "bestonfx-mt5-ops": ["bestonfx-rms", "phase0-complete", "ddl-rls"],
-    "bestonfx-v2":      ["v2-fresh-start", "pannawat", "trade-smarter", "whole-site-redesign", "bestonfx-revamp"],
-    "bestonfx-promos":  ["bestonfx-test", "hyperframes", "remotion-promo"],
-    "beston-line-oa":   ["beston-line", "line-oa", "liff"],
-    "hermes-local":     ["hermes-triple", "hermes-workspace", "hermes-prompts", "m1-workspace"],
-    "dx-design-os":     ["design-os-hardening", "design-os-audit", "dx-plan-renderer"],
-    "dx-academy":       ["dx-academy", "cfd-academy", "dx-content-system"],
-    "ai-agent-os":      ["ai-agent-os"],
-    "aibm":             ["aibm"],
-    "centroid-rms":     ["centroid-rms", "c24-obsidian"],
-    "dx-hub-2026":      ["dx-hub"],
-}
-
-
-def newest_entry_for(proj: dict, entries: list[dict]) -> dict | None:
-    """match ผ่าน MATCH_TAGS (canonical bridge) → tag → alias ที่ไม่กว้างเกิน.
-    entries เรียงใหม่→เก่า. ไม่เจอ=None → การ์ดใช้ registry notes (ดีกว่าโชว์ผิด)."""
-    tag = proj["tag"].lower()
-    keys = MATCH_TAGS.get(tag, []) + [tag]
-    # loop entry ชั้นนอก (เรียงใหม่→เก่า) → คืน entry ใหม่สุดที่ match key ใดก็ได้
-    for e in entries:
-        if any(k in e["blob"] for k in keys):
-            return e
-    aliases = [a.strip().lower() for a in proj["aliases"].split(",")
-               if len(a.strip()) > 4 and a.strip().lower() not in _GENERIC]
-    for e in entries:
-        if any(a in e["blob"] for a in aliases):
-            return e
-    return None
 
 
 @st.cache_data(ttl=600)
@@ -163,6 +72,10 @@ def artifacts_for(proj: dict, arts: list) -> list[tuple[str, str]]:
         if any(k in low for k in keys):
             hits.append((name, path))
     return hits[:6]
+
+
+def html_escape_local(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def open_path(p: str):
@@ -208,9 +121,27 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+def _must_do_items() -> list[dict]:
+    """Merge recommendations.json must_do into the inbox (spec: read-only, no dedupe needed)."""
+    if not RECO_FILE.exists():
+        return []
+    try:
+        raw = RECO_FILE.read_text(encoding="utf-8")
+        m = re.search(r"\{.*\}", raw, re.S)
+        data = json.loads(m.group(0) if m else raw)
+    except Exception:
+        return []
+    return [
+        {"text": it.get("text", ""), "source": it.get("project", "reco"), "file": str(RECO_FILE)}
+        for it in (data.get("must_do") or [])
+    ]
+
+
+_inbox_items = scan_decision_inbox(str(REPO_HANDOFF)) + _must_do_items()
+
 st.markdown(
     '<div class="quicknav"><a href="/" target="_self"><span class="qn-icon">◆</span>← command</a>'
-    '<span class="qn-status" style="margin-left:auto">portfolio</span></div>',
+    f'<span class="qn-status" style="margin-left:auto">📥 inbox {len(_inbox_items)}</span></div>',
     unsafe_allow_html=True,
 )
 st.markdown('<div class="cpt-cat">ผลงาน · portfolio</div>', unsafe_allow_html=True)
@@ -218,6 +149,27 @@ st.markdown('<div class="cpt-cat">ผลงาน · portfolio</div>', unsafe_al
 projects = parse_registry()
 entries = parse_long_term()
 arts = artifacts_index()
+
+# ═══════════════════════════════════════════════════════════
+# DECISION INBOX — full list (read-only)
+# ═══════════════════════════════════════════════════════════
+with st.container():
+    st.markdown('<div class="cpt-cat">📥 decision inbox</div>', unsafe_allow_html=True)
+    if not _inbox_items:
+        st.caption("ไม่มี decision ค้าง — HANDOFF.md ทุกโปรเจคว่าง")
+    else:
+        lis = "".join(
+            f'<li><span style="color:var(--accent);font-family:\'JetBrains Mono\',monospace;'
+            f'font-size:.68rem;text-transform:uppercase">{it["source"]}</span> '
+            f'{html_escape_local(it["text"][:120])}{"…" if len(it["text"]) > 120 else ""} '
+            f'<span class="pf-date">· {Path(it["file"]).name}</span></li>'
+            for it in _inbox_items[:30]
+        )
+        st.markdown(
+            f'<ol style="margin:.3rem 0 0;padding-left:1.2rem;font-size:.86rem;line-height:1.7">{lis}</ol>',
+            unsafe_allow_html=True,
+        )
+st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════
 # AI RECOMMENDATION

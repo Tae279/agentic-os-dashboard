@@ -132,6 +132,8 @@ BOOT_ANIMATION_CSS = """
 import webbrowser
 import monitors
 import theme
+import chat_backend
+from registry import scan_decision_inbox
 theme.inject()
 
 st.markdown("""<style>
@@ -162,6 +164,37 @@ if not st.session_state.get("_boot_animated"):
 
 def html_escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+# ═══════════════════════════════════════════════════════════
+# RUN HISTORY VIEWER — @st.dialog rendering a run .md in-app
+# ═══════════════════════════════════════════════════════════
+
+
+@st.dialog("📖 Run detail", width="large")
+def render_run_dialog(run_path: Path):
+    meta = _parse_frontmatter(run_path)
+    header_bits = [f"{k}: {v}" for k, v in meta.items() if k not in ("file", "path")]
+    st.markdown(
+        f'<div class="caption-mono" style="color:var(--fg-dim);margin-bottom:.6rem">'
+        f'{html_escape(" · ".join(header_bits))}</div>',
+        unsafe_allow_html=True,
+    )
+    try:
+        body = run_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        body = f"(อ่านไฟล์ไม่ได้: {e})"
+    st.markdown(body)
+
+
+# ─── Floating 💬 chat button (fixed bottom-right, both pages via theme.py CSS) ───
+# ponytail: a real st.button in a container CSS pins via .fab-chat-anchor
+# (theme.py) — more reliable across Streamlit versions than an anchor +
+# query-param trick (no page reload, no extra rerun to detect it).
+with st.container():
+    st.markdown('<div class="fab-chat-anchor"></div>', unsafe_allow_html=True)
+    if st.button("💬", key="fab_chat_btn", help="คุยกับ Claude"):
+        chat_backend.render_chat_dialog(html_escape)
 
 
 @st.cache_resource
