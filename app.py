@@ -1527,28 +1527,34 @@ _check_stuck_run()  # watchdog: notify if active run stalls
 col_main, col_side = st.columns([2.6, 1], gap="large")
 
 
-# ——— SIDEBAR COLUMN: recent runs ———
+# ——— SIDEBAR COLUMN: recent runs (in-app viewer + obsidian open ↗) ———
 with col_side:
-    runs = list_recent_runs(8)
-    card_html = '<div class="runs-card"><div class="cat-label">recent runs</div>'
+    runs = list_recent_runs(20)
+    st.markdown('<div class="runs-card"><div class="cat-label">recent runs</div>', unsafe_allow_html=True)
     if not runs:
-        card_html += '<div style="color: var(--text-mute); font-size: 0.8rem; padding: 0.4rem 0 0.5rem 0;">no runs yet</div>'
+        st.markdown(
+            '<div style="color: var(--text-mute); font-size: 0.8rem; padding: 0.4rem 0 0.5rem 0;">no runs yet</div>',
+            unsafe_allow_html=True,
+        )
     else:
-        card_html += '<div class="run-list">'
         for r in runs:
             mtime = datetime.fromtimestamp(r.stat().st_mtime)
             label = r.stem.split("-", 2)[-1].replace("-", " ")
             uri = obsidian_uri(r)
-            card_html += (
-                f'<div class="run-row">'
-                f'<span class="run-time">{mtime.strftime("%H:%M")}</span>'
-                f'<span class="run-label">{html_escape(label)}</span>'
-                f'<a href="{uri}" target="_blank">open ↗</a>'
-                f'</div>'
-            )
-        card_html += '</div>'
-    card_html += '</div>'
-    st.markdown(card_html, unsafe_allow_html=True)
+            rc1, rc2, rc3 = st.columns([2.2, 1, 0.9])
+            with rc1:
+                st.markdown(
+                    f'<div class="run-row" style="border:none;padding:.15rem 0">'
+                    f'<span class="run-time">{mtime.strftime("%H:%M")}</span>'
+                    f'<span class="run-label">{html_escape(label)}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with rc2:
+                if st.button("view", key=f"run_view_{r}", use_container_width=True):
+                    render_run_dialog(r)
+            with rc3:
+                st.markdown(f'<a href="{uri}" target="_blank" style="font-size:.75rem">open ↗</a>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     # ——— Decision Inbox: pending decisions from HANDOFF.md files ———
     _inbox = scan_decision_inbox(str(Path(__file__).parent / "HANDOFF.md"))
