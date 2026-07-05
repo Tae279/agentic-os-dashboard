@@ -26,3 +26,11 @@ _oauth_once.py
 assets/_recolor.py
 app.py.pre-retheme-backup
 dashboard-data/
+
+# web/ — Next.js app
+web/node_modules/
+web/.next/
+web/out/
+web/.env*.local
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo

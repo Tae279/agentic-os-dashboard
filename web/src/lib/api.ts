@@ -1,0 +1,106 @@
+// API client for the FastAPI backend at 127.0.0.1:8787.
+// Thin fetch wrappers + SSE helper — no state management here.
+
+export const API_BASE = "http://127.0.0.1:8787";
+
+export type Skill = {
+  id: string;
+  label: string;
+  description: string;
+  category: string;
+  input_placeholder?: string;
+};
+
+export type UsageResponse = {
+  five_hour: { tokens: number; pct: number; limit: number; limit_fmt: string; sessions: number; resets_in: string };
+  weekly: { tokens: number; pct: number; limit: number; limit_fmt: string; resets_in: string };
+  today: { input: number; output: number; total: number; sessions: number; routines: number; cost: number; runs: number };
+  value: { today_usd: number; month_usd: number; today_fmt: string; month_fmt: string };
+  metrics: { runs_today: number; cost_month: number; tokens_30d: number; approvals: number };
+};
+
+export type LiveSession = { project: string; cwd: string; state: string; last: number; alive: boolean };
+export type DevServer = { pid: string; port: number; cmd: string; cwd: string; framework: string };
+export type Project = {
+  name: string; tag: string; aliases: string; docs: string; code: string;
+  priority: string; notes: string;
+  latest_entry: { date: string; title: string; summary: string; tags: string; next: string } | null;
+};
+export type InboxItem = { text: string; source: string; file: string };
+export type Recommendations = {
+  must_do: { text: string; project: string }[];
+  nice_to_do: { text: string; project: string }[];
+  ideas: { text: string; why: string }[];
+};
+export type RunSummary = { file: string; path: string; skill: string | null; time: string | null; cost_usd: string | null; mtime: number };
+
+async function getJSON<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  return res.json();
+}
+
+export const api = {
+  usage: () => getJSON<UsageResponse>("/api/usage"),
+  sessions: () => getJSON<{ sessions: LiveSession[] }>("/api/sessions"),
+  devservers: () => getJSON<{ servers: DevServer[] }>("/api/devservers"),
+  projects: () => getJSON<{ projects: Project[] }>("/api/projects"),
+  inbox: () => getJSON<{ items: InboxItem[] }>("/api/inbox"),
+  artifacts: () => getJSON<{ recommendations: Recommendations }>("/api/artifacts"),
+  runs: () => getJSON<{ runs: RunSummary[] }>("/api/runs"),
+  skills: () => getJSON<{ skills: Skill[]; quick_routes: { label: string; path: string }[] }>("/api/skills"),
+  usageCounts: () => getJSON<Record<string, number>>("/api/usage-counts"),
+  runDetail: (file: string) => getJSON<{ content: string }>(`/api/runs/${encodeURIComponent(file)}`),
+  open: (path: string) => fetch(`${API_BASE}/api/open`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
+  kill: (pid: string) => fetch(`${API_BASE}/api/kill`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pid }) }),
+};
+
+export type SSEHandlers = {
+  onPhase?: (data: { phase: string; label?: string }) => void;
+  onText?: (data: { chunk: string }) => void;
+  onTool?: (data: { name: string }) => void;
+  onDone?: (data: Record<string, unknown>) => void;
+  onError?: (err: unknown) => void;
+};
+
+/** Minimal SSE-over-fetch reader (EventSource can't POST, so we parse manually). */
+export async function streamPost(path: string, body: Record<string, unknown>, handlers: SSEHandlers) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.body) throw new Error("no response body");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const events = buf.split("\n\n");
+      buf = events.pop() || "";
+      for (const raw of events) {
+        let event = "message";
+        let data = "";
+        for (const line of raw.split("\n")) {
+          if (line.startsWith("event:")) event = line.slice(6).trim();
+          if (line.startsWith("data:")) data += line.slice(5).trim();
+        }
+        if (!data) continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (event === "phase") handlers.onPhase?.(parsed);
+          else if (event === "text") handlers.onText?.(parsed);
+          else if (event === "tool") handlers.onTool?.(parsed);
+          else if (event === "done") handlers.onDone?.(parsed);
+        } catch {
+          /* ignore malformed chunk */
+        }
+      }
+    }
+  } catch (err) {
+    handlers.onError?.(err);
+  }
+}
