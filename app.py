@@ -1226,6 +1226,9 @@ else:
         '<span class="pulse-dot idle small"></span>idle</div>'
     )
 
+_inbox_count = len(scan_decision_inbox(str(Path(__file__).parent / "HANDOFF.md")))
+_inbox_label = f"📥 inbox {_inbox_count}" if _inbox_count else "📥 inbox"
+
 st.markdown(
     f"""
     <div class="quicknav">
@@ -1237,6 +1240,7 @@ st.markdown(
         <a href="{runs_folder_uri}" target="_blank"><span class="qn-icon">¶</span>runs folder</a>
         <a href="{drafts_folder_uri}" target="_blank"><span class="qn-icon">※</span>drafts</a>
         <a href="/portfolio" target="_self"><span class="qn-icon">⌗</span>portfolio</a>
+        <a href="/portfolio" target="_self">{_inbox_label}</a>
         {_status_html}
     </div>
     """,
@@ -1545,6 +1549,28 @@ with col_side:
         card_html += '</div>'
     card_html += '</div>'
     st.markdown(card_html, unsafe_allow_html=True)
+
+    # ——— Decision Inbox: pending decisions from HANDOFF.md files ———
+    _inbox = scan_decision_inbox(str(Path(__file__).parent / "HANDOFF.md"))
+    inbox_html = '<div class="runs-card"><div class="cat-label">📥 decision inbox</div>'
+    if not _inbox:
+        inbox_html += '<div style="color: var(--text-mute); font-size: 0.8rem; padding: 0.4rem 0 0.5rem 0;">ไม่มี decision ค้าง</div>'
+    else:
+        inbox_html += '<div class="run-list">'
+        for i, it in enumerate(_inbox[:8], 1):
+            text = it["text"]
+            short = text[:120] + ("…" if len(text) > 120 else "")
+            inbox_html += (
+                f'<div class="run-row">'
+                f'<span class="run-time">{i}.</span>'
+                f'<span class="run-label">'
+                f'<span style="color:var(--accent);font-size:.68rem;text-transform:uppercase">{html_escape(it["source"])}</span> '
+                f'{html_escape(short)}</span>'
+                f'</div>'
+            )
+        inbox_html += '</div>'
+    inbox_html += '</div>'
+    st.markdown(inbox_html, unsafe_allow_html=True)
 
     # ——— AgentPeek: live sessions ———
     _sessions = monitors.scan_live_sessions()
