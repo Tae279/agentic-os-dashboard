@@ -105,12 +105,31 @@ def parse_long_term() -> list[dict]:
 
 _GENERIC = {"os", "ai", "line", "hub", "rms", "centroid", "mt5", "c24", "academy", "agent"}
 
+# bridge registry tag → memory tags ที่ entry ใช้จริง (memory เขียนคนละ tag กับ registry)
+# ป้องกัน false-match ข้ามโปรเจค (bestonfx family). ตัวแรกที่เจอ = ชนะ, list เรียงเฉพาะ→กว้าง
+MATCH_TAGS = {
+    "bestonfx-mt5-ops": ["bestonfx-rms", "phase0-complete", "ddl-rls"],
+    "bestonfx-v2":      ["v2-fresh-start", "pannawat", "trade-smarter", "whole-site-redesign", "bestonfx-revamp"],
+    "bestonfx-promos":  ["bestonfx-test", "hyperframes", "remotion-promo"],
+    "beston-line-oa":   ["beston-line", "line-oa", "liff"],
+    "hermes-local":     ["hermes-triple", "hermes-workspace", "hermes-prompts", "m1-workspace"],
+    "dx-design-os":     ["design-os-hardening", "design-os-audit", "dx-plan-renderer"],
+    "dx-academy":       ["dx-academy", "cfd-academy", "dx-content-system"],
+    "ai-agent-os":      ["ai-agent-os"],
+    "aibm":             ["aibm"],
+    "centroid-rms":     ["centroid-rms", "c24-obsidian"],
+    "dx-hub-2026":      ["dx-hub"],
+}
+
 
 def newest_entry_for(proj: dict, entries: list[dict]) -> dict | None:
-    """match tag ก่อน (แม่น) แล้วค่อย alias ที่ไม่กว้างเกิน. ไม่เจอ=None → ใช้ registry notes."""
+    """match ผ่าน MATCH_TAGS (canonical bridge) → tag → alias ที่ไม่กว้างเกิน.
+    entries เรียงใหม่→เก่า. ไม่เจอ=None → การ์ดใช้ registry notes (ดีกว่าโชว์ผิด)."""
     tag = proj["tag"].lower()
+    keys = MATCH_TAGS.get(tag, []) + [tag]
+    # loop entry ชั้นนอก (เรียงใหม่→เก่า) → คืน entry ใหม่สุดที่ match key ใดก็ได้
     for e in entries:
-        if tag in e["blob"]:
+        if any(k in e["blob"] for k in keys):
             return e
     aliases = [a.strip().lower() for a in proj["aliases"].split(",")
                if len(a.strip()) > 4 and a.strip().lower() not in _GENERIC]
