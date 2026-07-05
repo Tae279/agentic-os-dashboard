@@ -237,17 +237,47 @@ RECO_PROMPT = (
 with st.container():
     c1, c2 = st.columns([4, 1])
     with c1:
-        st.markdown('<div class="cpt-cat">✱ FABLE แนะนำ</div>', unsafe_allow_html=True)
+        st.markdown('<div class="cpt-cat">✱ AI แนะนำ</div>', unsafe_allow_html=True)
     with c2:
         refresh = st.button("↻ refresh", use_container_width=True, key="reco_refresh")
 
+    # Proactive guard: dashboard buttons spawn `claude -p` with the default model
+    # from settings.json (no --model flag). Show it so a stale/preview model is
+    # visible BEFORE clicking — not only after a run fails.
+    try:
+        _model = json.loads(
+            (Path.home() / ".claude" / "settings.json").read_text(encoding="utf-8")
+        ).get("model", "")
+    except Exception:
+        _model = ""
+    if _model:
+        if "fable" in _model.lower():
+            st.markdown(
+                f'<div class="pf-date" style="color:var(--warn)">⚠ โมเดล: {_model}'
+                ' · preview — หลัง window ปิด เปลี่ยนเป็น claude-opus-4-8 ใน ~/.claude/settings.json</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(f'<div class="pf-date">โมเดล: {_model}</div>', unsafe_allow_html=True)
+
     if refresh:
-        with st.spinner("Fable กำลังอ่าน memory + คิดว่ามีอะไรน่าทำ… (~1 นาที)"):
+        with st.spinner("AI กำลังอ่าน memory + คิดว่ามีอะไรน่าทำ… (~1 นาที)"):
             try:
-                subprocess.run(
+                proc = subprocess.run(
                     [str(CLAUDE_CLI), "-p", RECO_PROMPT, "--permission-mode", "bypassPermissions"],
                     capture_output=True, text=True, timeout=240, cwd=str(Path.home()),
                 )
+                # Guard: surface real failures instead of silently showing empty.
+                # Most likely after a preview-model window closes (e.g. Fable) —
+                # the default model in ~/.claude/settings.json becomes unavailable.
+                if proc.returncode != 0:
+                    err = (proc.stderr or proc.stdout or "").strip()[-400:]
+                    hint = ""
+                    if "model" in err.lower():
+                        hint = ("\n\n**น่าจะเป็นเรื่องโมเดล:** default ใน "
+                                "`~/.claude/settings.json` อาจใช้ไม่ได้แล้ว "
+                                "→ เปลี่ยนเป็น `claude-opus-4-8`")
+                    st.error(f"refresh ไม่สำเร็จ (exit {proc.returncode}):\n\n```\n{err}\n```{hint}")
             except Exception as e:
                 st.warning(f"refresh ไม่สำเร็จ: {e}")
 
@@ -282,7 +312,7 @@ with st.container():
             ts = datetime.fromtimestamp(RECO_FILE.stat().st_mtime).strftime("%d %b %H:%M")
             st.markdown(f'<div class="pf-date">อัปเดตล่าสุด · {ts}</div>', unsafe_allow_html=True)
     else:
-        st.caption("ยังไม่มีคำแนะนำ — กด ↻ refresh ให้ Fable อ่าน memory แล้วเสนอว่ามีอะไรน่าทำ")
+        st.caption("ยังไม่มีคำแนะนำ — กด ↻ refresh ให้ AI อ่าน memory แล้วเสนอว่ามีอะไรน่าทำ")
 
 st.markdown("<div style='height:1.2rem'></div>", unsafe_allow_html=True)
 
