@@ -33,6 +33,19 @@ export type Recommendations = {
   ideas: { text: string; why: string }[];
 };
 export type RunSummary = { file: string; path: string; skill: string | null; time: string | null; cost_usd: string | null; mtime: number };
+export type Forecast = {
+  burn_per_min: number; burn_fmt: string; elapsed_pct: number; proj_pct: number;
+  state: "over_cap" | "under_cap"; headline: string; resets_in: string;
+  schedule: { time: string; label: string; in: string }[];
+};
+export type ValueSeries = {
+  today: number; yesterday: number; week_total: number;
+  series: { label: string; value: number }[]; available: boolean;
+};
+export type Integration = { name: string; status: string };
+export type VaultPulseItem = { verb: string; name: string; dir: string; age_sec: number; age_fmt: string; obsidian_uri: string };
+export type ActivitySeries = { dates: string[]; day_counts: number[]; cumulative: number[]; total: number; last_30d: number };
+export type RunsPerDay = { labels: string[]; values: number[]; total: number };
 
 async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
@@ -53,6 +66,13 @@ export const api = {
   runDetail: (file: string) => getJSON<{ content: string }>(`/api/runs/${encodeURIComponent(file)}`),
   open: (path: string) => fetch(`${API_BASE}/api/open`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path }) }),
   kill: (pid: string) => fetch(`${API_BASE}/api/kill`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pid }) }),
+  forecast: () => getJSON<Forecast>("/api/forecast"),
+  value: () => getJSON<ValueSeries>("/api/value"),
+  integrations: () => getJSON<{ integrations: Integration[] }>("/api/integrations"),
+  vaultPulse: () => getJSON<{ items: VaultPulseItem[] }>("/api/vault-pulse"),
+  activity: () => getJSON<ActivitySeries>("/api/activity"),
+  runsPerDay: () => getJSON<RunsPerDay>("/api/runs-per-day"),
+  openTerminal: () => fetch(`${API_BASE}/api/open-terminal`, { method: "POST" }),
 };
 
 export type SSEHandlers = {

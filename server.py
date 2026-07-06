@@ -117,6 +117,46 @@ def get_usage():
     }
 
 
+@app.get("/api/forecast")
+def get_forecast():
+    windows = core.calc_usage_windows()
+    five_h_tokens = windows["five_hour"]["total"]
+    rate_limits = core.load_rate_limits()
+    five_h_reset = (rate_limits.get("five_hour") or {}).get("resets_at")
+    return core.calc_forecast(five_h_tokens, LIMITS["five_hour_tokens"], five_h_reset)
+
+
+@app.get("/api/value")
+def get_value():
+    return core.get_value_series(days=7)
+
+
+@app.get("/api/integrations")
+def get_integrations():
+    return {"integrations": core.get_integrations()}
+
+
+@app.get("/api/vault-pulse")
+def get_vault_pulse():
+    return {"items": core.get_vault_pulse(limit=6)}
+
+
+@app.get("/api/activity")
+def get_activity():
+    return core.get_activity_cumulative(days=30)
+
+
+@app.get("/api/runs-per-day")
+def get_runs_per_day_ep():
+    return core.get_runs_per_day(days=7)
+
+
+@app.post("/api/open-terminal")
+def open_terminal():
+    core.open_claude_terminal()
+    return {"ok": True}
+
+
 @app.get("/api/sessions")
 def get_sessions():
     return {"sessions": monitors.scan_live_sessions()}

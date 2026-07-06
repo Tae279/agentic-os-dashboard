@@ -2,7 +2,9 @@
 
 import { motion } from "framer-motion";
 import { Circle, Inbox, FileText } from "lucide-react";
-import type { LiveSession, InboxItem, RunSummary } from "@/lib/api";
+import type { LiveSession, InboxItem, RunSummary, Forecast, ValueSeries, VaultPulseItem, RunsPerDay } from "@/lib/api";
+import { ForecastCard, ValueCard, VaultPulseCard } from "./side-cards";
+import { MiniBarChart } from "./mini-bar-chart";
 
 function timeAgo(ts: number) {
   const d = Math.floor(Date.now() / 1000 - ts);
@@ -21,10 +23,18 @@ export function RightRail({
   sessions,
   inbox,
   runs,
+  forecast,
+  value,
+  vaultPulse,
+  runsPerDay,
 }: {
   sessions: LiveSession[];
   inbox: InboxItem[];
   runs: RunSummary[];
+  forecast: Forecast | null;
+  value: ValueSeries | null;
+  vaultPulse: VaultPulseItem[];
+  runsPerDay: RunsPerDay | null;
 }) {
   return (
     <motion.aside
@@ -66,6 +76,19 @@ export function RightRail({
           </div>
         ))}
       </Section>
+
+      {runsPerDay && runsPerDay.values.length > 0 && (
+        <div>
+          <div className="text-[11px] text-fg-mute mb-1.5">
+            last <em>seven</em> days · {runsPerDay.total} runs
+          </div>
+          <MiniBarChart labels={runsPerDay.labels} values={runsPerDay.values} />
+        </div>
+      )}
+
+      <ForecastCard forecast={forecast} />
+      <ValueCard value={value} />
+      <VaultPulseCard items={vaultPulse} />
     </motion.aside>
   );
 }

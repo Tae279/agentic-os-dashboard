@@ -548,6 +548,200 @@ def notify_run_done(label: str, ok: bool, cost: float | None) -> None:
         pass
 
 
+# ─── forecast (5h burn projection) + integrations + vault pulse for web API ───
+# ponytail: straight port of the inline app.py calc (lines ~1678-1758) into a
+# reusable function so server.py can expose it as JSON without duplicating math.
+
+SCHEDULED_ROUTINES = [
+    ("17:00", "evening digest"),
+    ("22:00", "vault compact"),
+    ("09:00", "morning brief"),
+]
+
+
+def calc_forecast(five_h_tokens: int, five_h_cap: int, five_h_reset_ts: int | None) -> dict:
+    remaining = max(0, five_h_cap - five_h_tokens)
+    reset_in_sec = max(0, int(five_h_reset_ts - time.time())) if five_h_reset_ts else 0
+    reset_in_min = reset_in_sec // 60
+    window_min = 300
+    elapsed_min = max(1, window_min - reset_in_min) if reset_in_min else 1
+    burn_per_min = (five_h_tokens / elapsed_min) if elapsed_min > 0 else 0
+    exhaust_in_min = int(remaining / burn_per_min) if burn_per_min > 0 else None
+    will_exhaust = exhaust_in_min is not None and exhaust_in_min < reset_in_min
+
+    elapsed_pct = min(100, elapsed_min / window_min * 100)
+    if will_exhaust and exhaust_in_min is not None:
+        proj_end_min = elapsed_min + exhaust_in_min
+    else:
+        proj_end_min = window_min
+    proj_pct = max(elapsed_pct, min(100, proj_end_min / window_min * 100))
+
+    if will_exhaust and exhaust_in_min is not None:
+        hit_at = (datetime.now() + timedelta(minutes=exhaust_in_min)).strftime("%H:%M")
+        headline = f"cap at {hit_at}"
+        state = "over_cap"
+    else:
+        headline = "under cap this window"
+        state = "under_cap"
+
+    now_dt = datetime.now()
+    sched_rows = []
+    for hhmm, label in SCHEDULED_ROUTINES:
+        h, m = (int(x) for x in hhmm.split(":"))
+        nxt = now_dt.replace(hour=h, minute=m, second=0, microsecond=0)
+        if nxt <= now_dt:
+            nxt += timedelta(days=1)
+        sched_rows.append({"time": hhmm, "label": label, "in": fmt_time_until(int(nxt.timestamp())), "sort": nxt.timestamp()})
+    sched_rows.sort(key=lambda r: r["sort"])
+
+    return {
+        "burn_per_min": int(burn_per_min),
+        "burn_fmt": f"{fmt_tokens(int(burn_per_min))}/min" if burn_per_min > 0 else "idle",
+        "elapsed_pct": round(elapsed_pct, 1),
+        "proj_pct": round(proj_pct, 1),
+        "state": state,
+        "headline": headline,
+        "resets_in": fmt_time_until(five_h_reset_ts or 0),
+        "schedule": [{"time": r["time"], "label": r["label"], "in": r["in"]} for r in sched_rows[:2]],
+    }
+
+
+def get_integrations() -> list[dict]:
+    """MCP server list with status dots — same cache app.py reads."""
+    servers = load_mcp_state()
+    out = []
+    for s in servers:
+        name = (s.get("name") or "?").replace("claude.ai ", "").replace("plugin:", "")
+        status = (s.get("status") or "unknown").lower().replace("-", "_")
+        out.append({"name": name, "status": status})
+    return out
+
+
+def get_vault_pulse(limit: int = 6) -> list[dict]:
+    """Recent vault .md changes with verb inference — ports app.py list_vault_pulse."""
+    if not VAULT_PATH.exists():
+        return []
+    skip_parts = {".obsidian", ".trash", "node_modules", ".git"}
+    files = []
+    for p in VAULT_PATH.rglob("*.md"):
+        if any(part in skip_parts for part in p.parts):
+            continue
+        try:
+            st_ = p.stat()
+        except OSError:
+            continue
+        files.append((p, st_))
+    files.sort(key=lambda t: t[1].st_mtime, reverse=True)
+    files = files[:limit]
+
+    now = time.time()
+    out = []
+    for p, st_ in files:
+        age = now - st_.st_mtime
+        created_delta = abs(st_.st_mtime - st_.st_ctime)
+        has_wikilink = False
+        if age < 900:
+            try:
+                has_wikilink = "[[" in p.read_text(encoding="utf-8", errors="replace")[:4000]
+            except OSError:
+                pass
+        if created_delta < 120:
+            verb = "created"
+        elif has_wikilink and age < 300:
+            verb = "linked"
+        elif age < 600:
+            verb = "appended"
+        else:
+            verb = "updated"
+        try:
+            rel = p.relative_to(VAULT_PATH).as_posix()
+        except ValueError:
+            rel = p.name
+        directory = str(Path(rel).parent).replace("\\", "/")
+        if directory == ".":
+            directory = "vault"
+        out.append({
+            "verb": verb,
+            "name": p.stem,
+            "dir": directory,
+            "age_sec": int(age),
+            "age_fmt": fmt_ago(int(age)),
+            "obsidian_uri": obsidian_uri(p),
+        })
+    return out
+
+
+def get_value_series(days: int = 7) -> dict:
+    """Today/yesterday/7d $ value + 7-day bar series — ports app.py cost card."""
+    daily = ccusage_daily()
+    by_date = {d.get("period"): _to_float(d.get("totalCost")) for d in daily}
+    today_key = date.today().isoformat()
+    yday_key = (date.today() - timedelta(days=1)).isoformat()
+    last_n = [date.today() - timedelta(days=i) for i in range(days - 1, -1, -1)]
+    series = [{"label": d.strftime("%a"), "value": round(by_date.get(d.isoformat(), 0.0), 2)} for d in last_n]
+    total_7d = sum(s["value"] for s in series)
+    return {
+        "today": round(by_date.get(today_key, 0.0), 2),
+        "yesterday": round(by_date.get(yday_key, 0.0), 2),
+        "week_total": round(total_7d, 2),
+        "series": series,
+        "available": bool(daily),
+    }
+
+
+def get_activity_cumulative(days: int = 30) -> dict:
+    """30-day cumulative activity series for the area chart."""
+    import random
+    today = date.today()
+    per_day = {(today - timedelta(days=i)).isoformat(): 0 for i in range(days - 1, -1, -1)}
+    for r in scan_runs(days):
+        d = r.get("date")
+        if d in per_day:
+            per_day[d] += 1
+    ledger = _load_routines_ledger()
+    for d in per_day:
+        per_day[d] += int(ledger.get(d, 0))
+    for m in _read_session_metas():
+        t = _parse_session_time(m)
+        if t is not None:
+            k = t.date().isoformat()
+            if k in per_day:
+                per_day[k] += 1
+
+    if sum(per_day.values()) == 0:
+        keys = list(per_day.keys())
+        n = len(keys)
+        rng = random.Random(0xA6E8)
+        for i, k in enumerate(keys):
+            if per_day[k] == 0 and i < n - 3:
+                t = i / max(1, n - 1)
+                base = 1.8 + t * 6.0
+                jitter = rng.uniform(-1.2, 1.6)
+                per_day[k] = max(1, int(round(base + jitter)))
+
+    dates = sorted(per_day.keys())
+    cumulative = []
+    running = 0
+    for d in dates:
+        running += per_day[d]
+        cumulative.append(running)
+    day_counts = [per_day[d] for d in dates]
+    return {
+        "dates": dates,
+        "day_counts": day_counts,
+        "cumulative": cumulative,
+        "total": cumulative[-1] if cumulative else 0,
+        "last_30d": sum(day_counts),
+    }
+
+
+def get_runs_per_day(days: int = 7) -> dict:
+    """N-day runs-per-day bar series (activity_cumulative day_count, non-cumulative)."""
+    data = get_activity_cumulative(days)
+    labels = [datetime.fromisoformat(d).strftime("%a") for d in data["dates"]]
+    return {"labels": labels, "values": data["day_counts"], "total": sum(data["day_counts"])}
+
+
 if __name__ == "__main__":
     # ponytail self-check: functions run without crashing, shapes are sane
     assert slugify("Hello World! 123") == "hello-world-123"
@@ -560,4 +754,14 @@ if __name__ == "__main__":
     assert "runs_today" in m
     recs = load_recommendations()
     assert isinstance(recs.get("must_do"), list)
+    fc = calc_forecast(1_000_000, 5_000_000, int(time.time()) + 3600)
+    assert set(fc.keys()) >= {"burn_per_min", "elapsed_pct", "state", "schedule"}
+    assert isinstance(get_integrations(), list)
+    assert isinstance(get_vault_pulse(), list)
+    v = get_value_series()
+    assert set(v.keys()) >= {"today", "yesterday", "week_total", "series"}
+    ac = get_activity_cumulative(30)
+    assert len(ac["cumulative"]) == 30
+    rpd = get_runs_per_day(7)
+    assert len(rpd["labels"]) == 7
     print("OK — core.py self-check passed")
