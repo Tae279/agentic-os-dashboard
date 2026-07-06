@@ -15,3 +15,5 @@ gatherUsageStats = false
 
 [client]
 toolbarMode = "viewer"
+
+address = "0.0.0.0"

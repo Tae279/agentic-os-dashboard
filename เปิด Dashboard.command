@@ -1,12 +1,22 @@
 #!/bin/bash
-# เปิด Agentic OS Dashboard — ดับเบิลคลิกได้เลย (python -m = move-resilient)
+# เปิด DX Agentic OS — v7 Command Center (Next.js :3000 + FastAPI :8787)
+# ดับเบิลคลิกได้เลย · รันซ้ำ = เปิด browser เฉยๆ ไม่รันซ้อน
 cd "$(dirname "$0")"
-PORT=8501
-if lsof -i :$PORT -sTCP:LISTEN >/dev/null 2>&1; then
-    open "http://localhost:$PORT"
-    echo "Dashboard รันอยู่แล้ว — เปิด browser ให้แล้ว ปิดหน้าต่างนี้ได้เลย"
-    exit 0
+
+API=8787
+WEB=3000
+
+if ! lsof -i :$API -sTCP:LISTEN >/dev/null 2>&1; then
+    nohup .venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port $API >> .cache/uvicorn.log 2>&1 &
 fi
-( sleep 3 && open "http://localhost:$PORT" ) &
-echo "กำลังเปิด Agentic OS Dashboard... (ปิด: Ctrl+C หรือปิดหน้าต่างนี้)"
-exec .venv/bin/python -m streamlit run app.py --server.port $PORT --server.headless true
+if ! lsof -i :$WEB -sTCP:LISTEN >/dev/null 2>&1; then
+    ( cd web && nohup npm run start -- -p $WEB >> ../.cache/next.log 2>&1 & )
+fi
+
+echo "กำลังเปิด DX Agentic OS (v7)..."
+for _ in $(seq 1 40); do
+    curl -s -o /dev/null "http://localhost:$WEB" && break
+    sleep 0.5
+done
+open "http://localhost:$WEB"
+echo "เปิดแล้ว ✅ — ปิดหน้าต่างนี้ได้เลย (server รันต่อเบื้องหลัง)"
