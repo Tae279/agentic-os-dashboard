@@ -70,6 +70,8 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+html { color-scheme: dark; }   /* cockpit is dark-only — scrollbars/inputs follow */
+
 body {
   background: var(--bg);
   color: var(--fg);
@@ -79,11 +81,14 @@ body {
 .font-display { font-family: var(--font-display); }
 .font-mono-num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-/* soft radial glow behind header — Raycast-soft direction */
+/* soft radial glow behind header — Raycast-soft direction.
+   NOTE: this class sits on <body> and overrides body{background} — the final
+   var(--bg) layer keeps the canvas dark regardless of OS light/dark mode. */
 .bg-glow {
   background:
     radial-gradient(60% 45% at 18% -10%, rgba(61, 123, 255, 0.14), transparent 60%),
-    radial-gradient(40% 35% at 85% 0%, rgba(2, 74, 218, 0.10), transparent 65%);
+    radial-gradient(40% 35% at 85% 0%, rgba(2, 74, 218, 0.10), transparent 65%),
+    var(--bg);
 }
 
 .hairline { border: 1px solid var(--ring-soft); }
