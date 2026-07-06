@@ -17,6 +17,7 @@ import { GaugesRow } from "@/components/dashboard/gauges-row";
 import { ActivityChart } from "@/components/dashboard/activity-chart";
 import { IntegrationsStrip } from "@/components/dashboard/integrations-strip";
 import { Mascot, QuickNavPills } from "@/components/dashboard/quick-nav";
+import { PromptHero } from "@/components/dashboard/prompt-hero";
 
 export default function Home() {
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -124,6 +125,7 @@ export default function Home() {
               setRunPhase(null);
             }}
           />
+          <PromptHero onRunOutput={handleRunOutput} />
           <LauncherGrid skills={skills} usageCounts={usageCounts} onRunOutput={handleRunOutput} />
         </div>
         <RightRail
