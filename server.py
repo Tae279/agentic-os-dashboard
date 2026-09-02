@@ -10,11 +10,13 @@ Run: uvicorn server:app --host 127.0.0.1 --port 8787
 """
 
 import json
+import re
 import subprocess
 import threading
 import time
 from datetime import date, timedelta
 from pathlib import Path
+import tempfile
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +65,68 @@ app.add_middleware(
 
 HANDOFF_PATH = Path(__file__).parent / "HANDOFF.md"
 USAGE_COUNTS_FILE = Path(__file__).parent / "dashboard-data" / "usage-counts.json"
+# Radar page data files
+DATA_DIR = Path(__file__).parent / "dashboard-data"
+RADAR_FILE = DATA_DIR / "radar.json"
+RADAR_STATE_FILE = DATA_DIR / "radar-state.json"
+
+# Allowlist of directories where /api/run cwd param can be used
+RUN_CWD_EXTRA = [
+    Path("/Users/tae279/Documents/DX/Projects/bestonfx-rms-internal/rms-app"),
+    Path("/Users/tae279/DEV_TAE/projects/line-oa"),
+    Path("/Users/tae279/DEV_TAE/projects/beston-console"),
+    Path("/Users/tae279/DEV_TAE/projects/agentic-os-dashboard"),
+]
+
+
+
+
+
+# ═══════════════════════════════════════════════════════════
+# Radar API helpers — cwd allowlist + state persistence
+# ═══════════════════════════════════════════════════════════
+
+
+def _run_cwd_roots() -> list[Path]:
+    """Consolidate allowed directories: registry paths + RUN_CWD_EXTRA."""
+    roots = list(RUN_CWD_EXTRA)
+    # Add registry-based paths (from config, existing repos listed in registry)
+    try:
+        rows = registry.parse_registry()
+        for row in rows:
+            code_path = row.get("code", "")
+            if code_path and code_path.strip():
+                p = Path(code_path).resolve(strict=False)
+                if p.exists() and p not in roots:
+                    roots.append(p)
+    except Exception:
+        pass  # If registry fails, just use RUN_CWD_EXTRA
+    return roots
+
+
+def _resolve_run_cwd(raw_cwd: str | None) -> Path | None:
+    """
+    Resolve and validate cwd against allowlist.
+    Returns resolved Path if valid, None if not allowed.
+    """
+    if raw_cwd is None:
+        return Path(VAULT_PATH)
+
+    try:
+        resolved = Path(raw_cwd).resolve(strict=True)
+    except (ValueError, OSError):
+        return None
+
+    # Check if resolved path is within any allowed root
+    roots = _run_cwd_roots()
+    for root in roots:
+        try:
+            resolved.relative_to(root)
+            return resolved
+        except ValueError:
+            continue
+
+    return None
 
 
 # ═══════════════════════════════════════════════════════════
@@ -275,7 +339,12 @@ async def run_skill(request: Request):
     if not prompt.strip():
         return JSONResponse({"error": "empty prompt"}, status_code=400)
 
+    run_cwd = _resolve_run_cwd(body.get("cwd"))
+    if run_cwd is None:
+        return JSONResponse({"error": "cwd not allowed"}, status_code=403)
+
     async def event_gen():
+
         proc = subprocess.Popen(
             [
                 str(CLAUDE_CLI), "-p", prompt,
@@ -284,7 +353,7 @@ async def run_skill(request: Request):
                 "--verbose",
             ],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=str(VAULT_PATH), text=True, bufsize=1,
+            cwd=str(run_cwd), text=True, bufsize=1,
             encoding="utf-8", errors="replace",
         )
         accumulated_text = ""
@@ -470,6 +539,83 @@ async def kill_pid(request: Request):
         return JSONResponse({"error": "pid required"}, status_code=400)
     ok = monitors.kill_server(pid)
     return {"ok": ok}
+
+
+
+
+# ═══════════════════════════════════════════════════════════
+# Radar endpoints — GET /api/radar + POST /api/radar/check
+# ═══════════════════════════════════════════════════════════
+
+
+@app.get("/api/radar")
+def get_radar():
+    """Return radar data merged with checklist state from radar-state.json."""
+    try:
+        with open(RADAR_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return JSONResponse({"error": "radar.json not found"}, status_code=404)
+
+    # Load state if it exists
+    state = {}
+    if RADAR_STATE_FILE.exists():
+        try:
+            with open(RADAR_STATE_FILE, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Merge state into projects[*].tae_checklist[*].checked
+    for project in data.get("projects", []):
+        for item in project.get("tae_checklist", []):
+            item_id = item.get("id", "")
+            item["checked"] = state.get(item_id, False)
+
+    return data
+
+
+@app.post("/api/radar/check")
+async def post_radar_check(request: Request):
+    """
+    Update checklist item state.
+    Body: {key: "proj:c1", checked: bool}
+    """
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    key = body.get("key", "")
+    checked = body.get("checked", False)
+
+    # Validate key format: alphanumeric, underscore, colon (for proj:c1 format)
+    if not re.match(r"^[a-zA-Z0-9_:]+$", key):
+        return JSONResponse({"error": "invalid key format"}, status_code=400)
+
+    # Read current state
+    state = {}
+    if RADAR_STATE_FILE.exists():
+        try:
+            with open(RADAR_STATE_FILE, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Update the key
+    state[key] = bool(checked)
+
+    # Atomic write: write to temp file, then replace
+    try:
+        fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.json')
+        with open(fd, 'w', encoding='utf-8') as f:
+            json.dump(state, f, indent=2)
+
+        # Replace original atomically
+        Path(temp_path).replace(RADAR_STATE_FILE)
+        return {"success": True}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/health")
