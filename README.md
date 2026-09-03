@@ -150,6 +150,34 @@ Streamlit opens a browser tab at `http://localhost:8501`. If it doesn't open aut
 
 ---
 
+## Project Radar (`/radar`)
+
+Project Radar is the Next.js Command Center view for tracking project status, decisions, timeline events, and approved agent actions from one page.
+
+Run the FastAPI backend and production web app together:
+
+```bash
+./run.sh web
+```
+
+Then open `http://localhost:3000/radar`. The backend runs locally on `127.0.0.1:8787`.
+
+Radar data lives in `dashboard-data/radar.json`. This file is gitignored because it contains machine-local project paths and prompts. To add a project, append an object to `projects` with the existing fields (`id`, `code`, `name`, status, progress, next step, facts, rules, links, and optional actions/apps/checklist). To add a runnable action, add an item to that project's `actions` array:
+
+```json
+{
+  "id": "prepare-release-plan",
+  "label": "เตรียมแผน release",
+  "kind": "plan",
+  "cwd": "/absolute/path/to/allowed/project",
+  "prompt": "Read the project handoff and prepare the approved release plan."
+}
+```
+
+The action `cwd` must resolve inside the backend allowlist. JSON actions provide Claude prompts only; the UI does not execute shell commands stored in Radar data.
+
+---
+
 ## Step 5 — Adapt it to you (with Claude Code)
 
 This is the fun part. The dashboard was built with Claude Code and it's built to be modified with Claude Code.
