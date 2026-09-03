@@ -1,7 +1,7 @@
 // API client for the FastAPI backend at 127.0.0.1:8787.
 // Thin fetch wrappers + SSE helper — no state management here.
 
-export const API_BASE = "http://127.0.0.1:8787";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8787";
 
 export type Skill = {
   id: string;
@@ -116,31 +116,35 @@ export async function streamPost(path: string, body: Record<string, unknown>, ha
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
+    const dispatch = (raw: string) => {
+      let event = "message";
+      let data = "";
+      for (const line of raw.split("\n")) {
+        if (line.startsWith("event:")) event = line.slice(6).trim();
+        if (line.startsWith("data:")) data += line.slice(5).trim();
+      }
+      if (!data) return;
+      try {
+        const parsed = JSON.parse(data);
+        if (event === "phase") handlers.onPhase?.(parsed);
+        else if (event === "text") handlers.onText?.(parsed);
+        else if (event === "tool") handlers.onTool?.(parsed);
+        else if (event === "done") handlers.onDone?.(parsed);
+      } catch {
+        /* ignore malformed chunk */
+      }
+    };
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      buf += decoder.decode(value, { stream: true });
+      // sse-starlette separates lines with \r\n — normalise so the "\n\n" event split below works
+      // (without this every event sat in `buf` until the stream closed → UI stuck on "starting").
+      buf += decoder.decode(value, { stream: true }).replace(/\r\n/g, "\n");
       const events = buf.split("\n\n");
       buf = events.pop() || "";
-      for (const raw of events) {
-        let event = "message";
-        let data = "";
-        for (const line of raw.split("\n")) {
-          if (line.startsWith("event:")) event = line.slice(6).trim();
-          if (line.startsWith("data:")) data += line.slice(5).trim();
-        }
-        if (!data) continue;
-        try {
-          const parsed = JSON.parse(data);
-          if (event === "phase") handlers.onPhase?.(parsed);
-          else if (event === "text") handlers.onText?.(parsed);
-          else if (event === "tool") handlers.onTool?.(parsed);
-          else if (event === "done") handlers.onDone?.(parsed);
-        } catch {
-          /* ignore malformed chunk */
-        }
-      }
+      events.forEach(dispatch);
     }
+    if (buf.trim()) dispatch(buf);
   } catch (err) {
     handlers.onError?.(err);
   }

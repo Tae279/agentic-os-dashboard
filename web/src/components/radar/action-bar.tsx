@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip } from "@heroui/react";
-import { Loader2, Play, Square } from "lucide-react";
+import { ChevronRight, Loader2, Play, Square } from "lucide-react";
 import type { RadarAction, RadarProject } from "@/lib/api";
 import type { RadarRun } from "@/lib/radar";
 import { Button } from "@/components/ui/button";
@@ -52,11 +52,11 @@ export function ActionBar({
                 <div className="flex items-center gap-1.5 shrink-0">
                   {thisBusy ? (
                     <>
-                      <Button size="sm" disabled>
+                      <Button size="sm" className="min-h-11 md:min-h-0" disabled>
                         <Loader2 size={14} className="animate-spin" />
                         กำลังรัน · {run.phase}
                       </Button>
-                      <Button size="sm" variant="secondary" onClick={onStop}>
+                      <Button size="sm" variant="secondary" className="min-h-11 md:min-h-0" onClick={onStop}>
                         <Square size={14} />
                         หยุด
                       </Button>
@@ -64,6 +64,7 @@ export function ActionBar({
                   ) : (
                     <Button
                       size="sm"
+                      className="min-h-11 md:min-h-0"
                       disabled={busy}
                       title={busy ? "รอ run ปัจจุบันจบก่อน" : undefined}
                       onClick={() => onStart(action)}
@@ -92,8 +93,15 @@ export function ActionBar({
                   )}
                 </div>
               )}
-              <details>
-                <summary className="text-[11px] text-fg-mute cursor-pointer">ดู prompt ที่จะรัน</summary>
+              <details className="group">
+                <summary className="inline-flex items-center gap-1 min-h-11 md:min-h-0 text-[11px] text-fg-mute cursor-pointer rounded-[var(--radius-chip)] list-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
+                  <ChevronRight
+                    size={12}
+                    aria-hidden
+                    className="transition-transform group-open:rotate-90"
+                  />
+                  ดู prompt ที่จะรัน
+                </summary>
                 <pre className="text-[11px] text-fg-dim whitespace-pre-wrap font-mono-num max-h-48 overflow-y-auto">
                   {action.prompt}
                 </pre>

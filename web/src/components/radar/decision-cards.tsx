@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip } from "@heroui/react";
-import { Check, Undo2 } from "lucide-react";
+import { Check, Inbox, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { RadarDecision, RadarProject } from "@/lib/api";
 
@@ -26,8 +26,12 @@ export function DecisionCards({
 }) {
   if (decisions.length === 0) {
     return (
-      <div className="rounded-[var(--radius-card)] hairline bg-bg-card p-4 text-fg-dim">
-        ไม่มีเรื่องรอตัดสินใจ
+      <div className="rounded-[var(--radius-card)] hairline bg-bg-card p-6">
+        <Inbox size={28} aria-hidden className="text-fg-mute" />
+        <p className="text-sm text-fg mt-2">ไม่มีเรื่องรอตัดสินใจ</p>
+        <p className="text-xs text-fg-dim mt-1">
+          ทุกคำถามถูกตอบแล้ว — กลับมาดูใหม่เมื่อ radar อัปเดต
+        </p>
       </div>
     );
   }
@@ -61,7 +65,7 @@ export function DecisionCards({
                 <button
                   type="button"
                   onClick={() => onOpenProject(project.id)}
-                  className="font-mono-num text-[11px] hairline rounded-[var(--radius-chip)] px-1.5 text-fg-dim hover:text-fg"
+                  className="font-mono-num text-[11px] hairline rounded-[var(--radius-chip)] px-1.5 py-0.5 text-fg-dim hover:text-fg cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                 >
                   {project.code}
                 </button>
@@ -82,13 +86,14 @@ export function DecisionCards({
             </div>
             <div className="mt-3">
               <div className="text-[11px] uppercase tracking-[0.14em] text-fg-mute">ต้นทุน</div>
-              <p className="font-mono-num text-[11px] text-fg-dim">{decision.cost}</p>
+              <p className="text-xs text-fg-dim">{decision.cost}</p>
             </div>
 
             <div className="mt-4">
               <Button
                 size="sm"
                 variant="secondary"
+                className="min-h-11 md:min-h-0"
                 onClick={() => onToggle(key, !answered)}
               >
                 {answered ? <Undo2 size={14} /> : <Check size={14} />}

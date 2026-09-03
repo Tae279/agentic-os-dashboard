@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarClock } from "lucide-react";
 import type { RadarEvent, RadarProject } from "@/lib/api";
 import { ageLabel, daysAgo } from "@/lib/radar";
 
@@ -23,8 +24,10 @@ export function Timeline({
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-[var(--radius-card)] hairline bg-bg-card p-4 text-fg-dim">
-        ยังไม่มีเหตุการณ์
+      <div className="rounded-[var(--radius-card)] hairline bg-bg-card p-6">
+        <CalendarClock size={28} aria-hidden className="text-fg-mute" />
+        <p className="text-sm text-fg mt-2">ยังไม่มีเหตุการณ์</p>
+        <p className="text-xs text-fg-dim mt-1">เหตุการณ์จะขึ้นที่นี่เมื่อไฟล์สถานะโปรเจกต์ถูกอัปเดต</p>
       </div>
     );
   }
@@ -33,7 +36,7 @@ export function Timeline({
     <div className="space-y-5">
       {groups.map(([date, items], groupIndex) => (
         <section key={date}>
-          <h2 className="font-mono-num text-[11px] uppercase tracking-[0.14em] text-fg-mute mb-2">
+          <h2 className="text-[11px] uppercase tracking-[0.14em] tabular-nums text-fg-mute mb-2">
             {date} · {ageLabel(daysAgo(date))}
           </h2>
           <div className="border-l border-ring-soft pl-4 ml-1 space-y-2">
@@ -51,7 +54,7 @@ export function Timeline({
                     <button
                       type="button"
                       onClick={() => onOpenProject(project.id)}
-                      className={`${codeClass} text-fg-dim hover:text-fg shrink-0`}
+                      className={`${codeClass} py-0.5 text-fg-dim hover:text-fg shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60`}
                     >
                       {event.code}
                     </button>

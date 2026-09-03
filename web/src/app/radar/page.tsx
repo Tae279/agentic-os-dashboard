@@ -172,17 +172,17 @@ export default function RadarPage() {
             <nav className="flex items-center gap-1 text-xs">
               <Link
                 href="/"
-                className="px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors"
+                className="inline-flex items-center min-h-10 md:min-h-0 px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
               >
                 launcher
               </Link>
               <Link
                 href="/portfolio"
-                className="px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors"
+                className="inline-flex items-center min-h-10 md:min-h-0 px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
               >
                 portfolio
               </Link>
-              <span className="px-3 py-1.5 rounded-[var(--radius-chip)] hairline bg-bg-card text-fg">
+              <span aria-current="page" className="inline-flex items-center min-h-10 md:min-h-0 px-3 py-1.5 rounded-[var(--radius-chip)] hairline bg-bg-card text-fg">
                 radar
               </span>
             </nav>
@@ -227,6 +227,7 @@ export default function RadarPage() {
             />
 
             <Tabs
+              variant="secondary"
               selectedKey={tab}
               onSelectionChange={(key) => {
                 if (key === "projects" || key === "decisions" || key === "timeline") {
@@ -236,15 +237,15 @@ export default function RadarPage() {
             >
               <Tabs.ListContainer>
                 <Tabs.List aria-label="Radar views">
-                  <Tabs.Tab id="projects">
+                  <Tabs.Tab id="projects" className="min-h-11 md:min-h-0" style={{ width: "auto" }}>
                     โปรเจกต์
                     <Tabs.Indicator />
                   </Tabs.Tab>
-                  <Tabs.Tab id="decisions">
+                  <Tabs.Tab id="decisions" className="min-h-11 md:min-h-0" style={{ width: "auto" }}>
                     {`รอเต้ตัดสินใจ (${data.decisions.length})`}
                     <Tabs.Indicator />
                   </Tabs.Tab>
-                  <Tabs.Tab id="timeline">
+                  <Tabs.Tab id="timeline" className="min-h-11 md:min-h-0" style={{ width: "auto" }}>
                     ไทม์ไลน์
                     <Tabs.Indicator />
                   </Tabs.Tab>
