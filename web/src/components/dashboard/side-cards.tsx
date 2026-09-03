@@ -1,7 +1,43 @@
 "use client";
 
-import type { Forecast, ValueSeries, VaultPulseItem } from "@/lib/api";
+import Link from "next/link";
+import type { Forecast, RadarResponse, ValueSeries, VaultPulseItem } from "@/lib/api";
+import { FILTERS } from "@/lib/radar";
 import { MiniBarChart } from "./mini-bar-chart";
+
+export function RadarCard({ radar }: { radar: RadarResponse | null }) {
+  if (!radar) {
+    return <div className="h-28 rounded-[var(--radius-card)] hairline bg-bg-card/60 animate-pulse" />;
+  }
+
+  const attention = FILTERS.find((item) => item.id === "attention");
+  const attentionCount = attention ? radar.projects.filter(attention.f).length : 0;
+  const decisions = radar.decisions.filter(
+    (decision) => !radar.state.checked[`decision:${decision.id}`],
+  ).length;
+  const behind = radar.projects.filter((project) => project.status === "behind").length;
+  const uncommitted = radar.projects.filter((project) => project.uncommitted).length;
+
+  return (
+    <div className="rounded-[var(--radius-card)] hairline bg-bg-card p-3.5">
+      <div className="flex items-center justify-between text-xs font-mono-num text-fg-dim">
+        <span>radar · โปรเจกต์</span>
+        <Link href="/radar" className="text-accent">
+          เปิด →
+        </Link>
+      </div>
+      <div className="flex items-baseline gap-2 mt-1">
+        <span className="font-display text-3xl font-semibold font-mono-num text-fg">
+          {attentionCount}
+        </span>
+        <span className="text-xs text-fg-dim">งานต้องดูวันนี้</span>
+      </div>
+      <div className="text-[11px] text-fg-mute mt-1">
+        {decisions} รอเต้ตัดสินใจ · {behind} prod ตามหลัง · {uncommitted} ยังไม่ push
+      </div>
+    </div>
+  );
+}
 
 export function ForecastCard({ forecast }: { forecast: Forecast | null }) {
   if (!forecast) return <div className="h-32 rounded-[var(--radius-card)] hairline bg-bg-card/60 animate-pulse" />;

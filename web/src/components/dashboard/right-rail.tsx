@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Circle, Inbox, FileText } from "lucide-react";
-import type { LiveSession, InboxItem, RunSummary, Forecast, ValueSeries, VaultPulseItem, RunsPerDay } from "@/lib/api";
-import { ForecastCard, ValueCard, VaultPulseCard } from "./side-cards";
+import type { LiveSession, InboxItem, RunSummary, Forecast, RadarResponse, ValueSeries, VaultPulseItem, RunsPerDay } from "@/lib/api";
+import { ForecastCard, RadarCard, ValueCard, VaultPulseCard } from "./side-cards";
 import { MiniBarChart } from "./mini-bar-chart";
 
 function timeAgo(ts: number) {
@@ -23,6 +23,7 @@ export function RightRail({
   sessions,
   inbox,
   runs,
+  radar,
   forecast,
   value,
   vaultPulse,
@@ -31,6 +32,7 @@ export function RightRail({
   sessions: LiveSession[];
   inbox: InboxItem[];
   runs: RunSummary[];
+  radar: RadarResponse | null;
   forecast: Forecast | null;
   value: ValueSeries | null;
   vaultPulse: VaultPulseItem[];
@@ -43,6 +45,8 @@ export function RightRail({
       transition={{ duration: 0.35, delay: 0.1 }}
       className="w-full lg:w-80 shrink-0 rounded-[var(--radius-card)] hairline bg-bg-card/60 p-4 space-y-5 max-h-[calc(100vh-8rem)] overflow-y-auto"
     >
+      <RadarCard radar={radar} />
+
       <Section icon={<Circle size={13} />} title="Live sessions">
         {sessions.length === 0 && <Empty text="ไม่มี session ที่ทำงานอยู่" />}
         {sessions.map((s, i) => (

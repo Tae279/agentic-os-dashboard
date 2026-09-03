@@ -7,9 +7,11 @@ import type { Skill } from "@/lib/api";
 export function CommandPalette({
   skills,
   onSelect,
+  pages = [],
 }: {
   skills: Skill[];
   onSelect: (skill: Skill) => void;
+  pages?: { label: string; description: string; href: string }[];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -46,20 +48,38 @@ export function CommandPalette({
             <Command.Empty className="text-xs text-fg-mute px-3 py-4 text-center">
               ไม่พบ workflow ที่ตรงกัน
             </Command.Empty>
-            {skills.map((skill) => (
-              <Command.Item
-                key={skill.id}
-                value={`${skill.label} ${skill.description}`}
-                onSelect={() => {
-                  onSelect(skill);
-                  setOpen(false);
-                }}
-                className="px-3 py-2 rounded-[var(--radius-chip)] text-sm text-fg cursor-pointer data-[selected=true]:bg-accent-soft flex items-center justify-between gap-2"
-              >
-                <span className="font-display">{skill.label}</span>
-                <span className="text-[11px] text-fg-mute truncate">{skill.description}</span>
-              </Command.Item>
-            ))}
+            <Command.Group heading="หน้า">
+              {pages.map((page) => (
+                <Command.Item
+                  key={page.href}
+                  value={`${page.label} ${page.description}`}
+                  onSelect={() => {
+                    window.location.assign(page.href);
+                    setOpen(false);
+                  }}
+                  className="px-3 py-2 rounded-[var(--radius-chip)] text-sm text-fg cursor-pointer data-[selected=true]:bg-accent-soft flex items-center justify-between gap-2"
+                >
+                  <span className="font-display">{page.label}</span>
+                  <span className="text-[11px] text-fg-mute truncate">{page.description}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
+            <Command.Group heading="workflow">
+              {skills.map((skill) => (
+                <Command.Item
+                  key={skill.id}
+                  value={`${skill.label} ${skill.description}`}
+                  onSelect={() => {
+                    onSelect(skill);
+                    setOpen(false);
+                  }}
+                  className="px-3 py-2 rounded-[var(--radius-chip)] text-sm text-fg cursor-pointer data-[selected=true]:bg-accent-soft flex items-center justify-between gap-2"
+                >
+                  <span className="font-display">{skill.label}</span>
+                  <span className="text-[11px] text-fg-mute truncate">{skill.description}</span>
+                </Command.Item>
+              ))}
+            </Command.Group>
           </Command.List>
         </Command>
       </div>

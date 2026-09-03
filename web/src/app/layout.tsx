@@ -33,7 +33,8 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${spaceGrotesk.variable} ${prompt.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      data-theme="dark"
+      className={`${spaceGrotesk.variable} ${prompt.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-glow">{children}</body>
     </html>

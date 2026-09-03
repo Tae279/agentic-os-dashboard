@@ -6,6 +6,7 @@ import { api, streamPost } from "@/lib/api";
 import type {
   Skill, UsageResponse, LiveSession, InboxItem, RunSummary,
   Forecast, ValueSeries, Integration, VaultPulseItem, ActivitySeries, RunsPerDay,
+  RadarResponse,
 } from "@/lib/api";
 import { StatusStrip } from "@/components/dashboard/status-strip";
 import { LauncherGrid } from "@/components/dashboard/launcher-grid";
@@ -33,13 +34,14 @@ export default function Home() {
   const [vaultPulse, setVaultPulse] = useState<VaultPulseItem[]>([]);
   const [activity, setActivity] = useState<ActivitySeries | null>(null);
   const [runsPerDay, setRunsPerDay] = useState<RunsPerDay | null>(null);
+  const [radar, setRadar] = useState<RadarResponse | null>(null);
 
   const [runLabel, setRunLabel] = useState<string | null>(null);
   const [runText, setRunText] = useState("");
   const [runPhase, setRunPhase] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [s, uc, u, sess, ib, r, fc, val, ints, vp, act, rpd] = await Promise.allSettled([
+    const [s, uc, u, sess, ib, r, fc, val, ints, vp, act, rpd, radarResult] = await Promise.allSettled([
       api.skills(),
       api.usageCounts(),
       api.usage(),
@@ -52,6 +54,7 @@ export default function Home() {
       api.vaultPulse(),
       api.activity(),
       api.runsPerDay(),
+      api.radar(),
     ]);
     if (s.status === "fulfilled") {
       setSkills(s.value.skills);
@@ -68,6 +71,7 @@ export default function Home() {
     if (vp.status === "fulfilled") setVaultPulse(vp.value.items);
     if (act.status === "fulfilled") setActivity(act.value);
     if (rpd.status === "fulfilled") setRunsPerDay(rpd.value);
+    if (radarResult.status === "fulfilled") setRadar(radarResult.value);
   }, []);
 
   useEffect(() => {
@@ -101,6 +105,12 @@ export default function Home() {
             >
               portfolio
             </Link>
+            <Link
+              href="/radar"
+              className="px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors"
+            >
+              radar
+            </Link>
           </nav>
         </div>
         <QuickNavPills quickRoutes={quickRoutes} />
@@ -132,6 +142,7 @@ export default function Home() {
           sessions={sessions}
           inbox={inbox}
           runs={runs}
+          radar={radar}
           forecast={forecast}
           value={value}
           vaultPulse={vaultPulse}
@@ -142,6 +153,10 @@ export default function Home() {
       <ChatDock />
       <CommandPalette
         skills={skills}
+        pages={[
+          { label: "Radar", description: "สถานะทุกโปรเจกต์ + ปุ่มรันงานค้าง", href: "/radar" },
+          { label: "Portfolio", description: "การ์ดโปรเจกต์ + AI แนะนำ", href: "/portfolio" },
+        ]}
         onSelect={async (skill) => {
           setRunLabel(skill.label);
           setRunText("");

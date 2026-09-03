@@ -73,6 +73,27 @@ export const api = {
   activity: () => getJSON<ActivitySeries>("/api/activity"),
   runsPerDay: () => getJSON<RunsPerDay>("/api/runs-per-day"),
   openTerminal: () => fetch(`${API_BASE}/api/open-terminal`, { method: "POST" }),
+  radar: () => getJSON<RadarResponse>("/api/radar"),
+  radarCheck: (key: string, checked: boolean) => fetch(`${API_BASE}/api/radar/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, checked }) }),
+};
+
+export type RadarStatus = "live" | "building" | "planning" | "behind" | "quiet";
+export type RadarLink = { label: string; url: string };
+export type RadarAction = { id: string; label: string; cwd: string; kind: "plan" | "git"; prompt: string };
+export type RadarApp = { label: string; kind: "prod" | "local"; url: string; port?: number; cwd?: string; cmd?: string };
+export type RadarChecklistItem = { id: string; text: string };
+export type RadarProject = {
+  id: string; code: string; name: string; status: RadarStatus; statusLabel: string;
+  phase: string; progress: number; updated: string | null; next: string;
+  waiting: "tae" | "external" | null; blocker: string | null; uncommitted?: boolean; gap?: boolean;
+  prod: string | null; facts: string[]; rules: string[]; steps: string[]; links: RadarLink[]; src: string;
+  actions: RadarAction[]; apps: RadarApp[]; tae_checklist: RadarChecklistItem[];
+};
+export type RadarDecision = { id: string; project: string; question: string; why: string; rec: string; cost: string; impact: 1 | 2 | 3 };
+export type RadarEvent = { date: string; code: string; text: string };
+export type RadarResponse = {
+  version: number; verified: string; projects: RadarProject[]; decisions: RadarDecision[]; events: RadarEvent[];
+  state: { checked: Record<string, boolean> };
 };
 
 export type SSEHandlers = {

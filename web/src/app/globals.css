@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@heroui/styles";
 
 :root {
   /* DX cockpit tokens — ported 1:1 from theme.py PREMIUM_CSS (2026-07-06) */
@@ -21,6 +22,28 @@
 
   --background: var(--bg);
   --foreground: var(--fg);
+
+  /* HeroUI v3 semantic vars → DX cockpit tokens (added v10 radar) */
+  --surface: var(--bg-card);
+  --surface-foreground: var(--fg);
+  --overlay: var(--bg-card-hi);
+  --overlay-foreground: var(--fg);
+  --muted: var(--fg-dim);
+  --default: var(--bg-card-hi);
+  --default-foreground: var(--fg);
+  --accent-foreground: #ffffff;
+  --border: var(--ring-soft);
+  --separator: var(--ring-soft);
+  --focus: var(--accent);
+  --link: var(--accent);
+  --success: var(--good);
+  --success-foreground: #071a0e;
+  --warning: var(--warn);
+  --warning-foreground: #1a1204;
+  --danger-foreground: #ffffff;
+  --field-background: var(--bg-elev);
+  --field-foreground: var(--fg);
+  --backdrop: rgba(0, 0, 0, 0.6);
 }
 
 @theme inline {
@@ -56,9 +79,9 @@
   --color-primary-foreground: #ffffff;
   --color-secondary: var(--bg-card-hi);
   --color-secondary-foreground: var(--fg);
-  --color-muted: var(--bg-elev);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--fg-dim);
-  --color-accent-foreground: var(--fg);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--danger);
   --color-border: var(--ring-soft);
   --color-input: var(--ring-soft);

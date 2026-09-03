@@ -27,12 +27,20 @@ export default function PortfolioPage() {
           <h1 className="font-display text-xl font-semibold text-fg">Portfolio</h1>
           <p className="text-xs text-fg-dim mt-0.5">{projects.length} โปรเจคที่กำลังดูแล</p>
         </div>
-        <Link
-          href="/"
-          className="text-xs text-fg-dim hover:text-fg px-3 py-1.5 rounded-[var(--radius-chip)] hairline hairline-hover transition-colors"
-        >
-          ← Launcher
-        </Link>
+        <nav className="flex items-center gap-1">
+          <Link
+            href="/"
+            className="text-xs text-fg-dim hover:text-fg px-3 py-1.5 rounded-[var(--radius-chip)] hairline hairline-hover transition-colors"
+          >
+            ← Launcher
+          </Link>
+          <Link
+            href="/radar"
+            className="text-xs text-fg-dim hover:text-fg px-3 py-1.5 rounded-[var(--radius-chip)] hairline hairline-hover transition-colors"
+          >
+            radar
+          </Link>
+        </nav>
       </header>
 
       {recs && (
