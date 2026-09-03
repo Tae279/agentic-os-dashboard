@@ -1,6 +1,6 @@
 # Plan — DX Command Center v10 · "Project Radar" page + action buttons
 
-Status: building
+Status: done
 Created: 2026-09-02 · Author: Claude (Fable 5.1) · Owner: Tae
 Repo: `~/DEV_TAE/projects/agentic-os-dashboard` (branch `feat/web-ui`, v7 Command Center = FastAPI `server.py` :8787 + Next.js `web/` :3000 HeroUI Pro)
 
@@ -21,12 +21,12 @@ Next.js 16 + React 19 + Tailwind 4 + `@heroui-pro/react` + `@heroui/react` + fra
 ## Done When
 - [x] `GET /api/radar` คืน 8 โปรเจกต์จาก `radar.json` · `curl` แสดง JSON จริง
 - [x] `localhost:3000/radar` แสดงครบ 3 tab · screenshot 1440 + 390 ไม่มี overflow แนวนอน
-- [ ] กดปุ่ม action ของ RMS → มี run จริงใน `runs/` + output stream ในหน้า (quote บรรทัดแรกของ stream)
+- [x] กดปุ่ม action ของ RMS → มี run จริงใน `runs/` + output stream ในหน้า (quote บรรทัดแรกของ stream)
 - [x] `POST /api/run` รับ `cwd` เฉพาะ path ใน allowlist (registry) — path นอก allowlist → 403 (ทดสอบจริง)
-- [ ] ปุ่มเปิดแอป: prod เปิด URL · local เปิด/สตาร์ท dev server ผ่าน `/api/devservers` + `/api/open`
-- [ ] Tae checklist ติ๊กแล้วรีเฟรชยังอยู่ (`dashboard-data/radar-state.json`)
+- [x] ปุ่มเปิดแอป: prod เปิด URL · local เปิด/สตาร์ท dev server ผ่าน `/api/devservers` + `/api/open`
+- [x] Tae checklist ติ๊กแล้วรีเฟรชยังอยู่ (`dashboard-data/radar-state.json`)
 - [x] `cd web && npm run build` exit 0 · `curl :8787/api/health` 200
-- [ ] design-reviewer Mode B ผ่าน DESIGN.md · Codex review ผ่านสำหรับ `server.py` (cwd allowlist = security-sensitive)
+- [x] design-reviewer Mode B ผ่าน DESIGN.md · Codex review ผ่านสำหรับ `server.py` (cwd allowlist = security-sensitive)
 
 ## Routing
 Fable = spec/review/verify · **cursor-worker (Grok 4.5)** = build ทุก T0xx–T3xx · **Codex** = review T041 · dx-cheap = T001 (mechanical extract) · Kimi research = **ไม่จำเป็น** (ข้อเท็จจริง verify ครบจาก Explore sweep 2026-09-02)
@@ -59,9 +59,9 @@ Fable = spec/review/verify · **cursor-worker (Grok 4.5)** = build ทุก T0x
 - **Checkpoint 3:** screenshot 3 tab · `npm run build` exit 0
 
 ## Phase 4 — Review + export (≈30 นาที)
-- [ ] T040 `design-reviewer` Mode B — review `/radar` vs DESIGN.md + AVOID-LIST · แก้เอง
-- [ ] T041 `codex:review` — `server.py` diff (cwd allowlist, path traversal, prompt injection จาก json) **ก่อนประกาศเสร็จ**
-- [ ] T042 [P] `cursor-worker` — `scripts/export-radar-artifact.mjs`: radar.json → single-file HTML read-only (โครงจาก v1) → Fable publish ทับ artifact `https://claude.ai/code/artifact/2edbc4ec-d7f8-49f0-9862-fe13c70e26a8`
+- [x] T040 `design-reviewer` Mode B — review `/radar` vs DESIGN.md + AVOID-LIST · แก้เอง
+- [x] T041 `codex:review` — `server.py` diff (cwd allowlist, path traversal, prompt injection จาก json) **ก่อนประกาศเสร็จ**
+- [x] T042 [P] `cursor-worker` — `scripts/export-radar-artifact.mjs`: radar.json → single-file HTML read-only (โครงจาก v1) → Fable publish ทับ artifact `https://claude.ai/code/artifact/2edbc4ec-d7f8-49f0-9862-fe13c70e26a8`
 - [x] T043 อัปเดต `HANDOFF.md` (v10 section) + `README.md` (หน้า /radar + วิธีเพิ่มโปรเจกต์ใน radar.json)
 - **Checkpoint 4 (final):** ทุก Done When ติ๊กพร้อม quoted output · screenshot ส่งเต้ · commit บน `feat/web-ui` (ห้าม main)
 
