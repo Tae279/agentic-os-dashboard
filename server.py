@@ -62,6 +62,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+_ALLOWED_ORIGINS = {"http://localhost:3000", "http://localhost:3005", "http://127.0.0.1:3000", "http://127.0.0.1:3005"}
+
+
+@app.middleware("http")
+async def _csrf_guard(request: Request, call_next):
+    """Browser-side CSRF guard: a page on any other origin could fire a text/plain POST at
+    127.0.0.1:8787 (no CORS preflight) and start a claude run. Require our origin (when the
+    browser sends one) and a JSON content-type on every POST. curl/scripts stay unaffected."""
+    if request.method == "POST":
+        origin = request.headers.get("origin")
+        if origin and origin not in _ALLOWED_ORIGINS:
+            return JSONResponse({"error": "origin not allowed"}, status_code=403)
+        ctype = request.headers.get("content-type", "")
+        if request.headers.get("content-length", "0") not in ("", "0") and not ctype.startswith("application/json"):
+            return JSONResponse({"error": "content-type must be application/json"}, status_code=415)
+    return await call_next(request)
+
+
 HANDOFF_PATH = Path(__file__).parent / "HANDOFF.md"
 USAGE_COUNTS_FILE = Path(__file__).parent / "dashboard-data" / "usage-counts.json"
 DATA_DIR = Path(__file__).parent / "dashboard-data"
@@ -70,6 +88,11 @@ RADAR_STATE_FILE = DATA_DIR / "radar-state.json"
 RUN_STDERR_DIR = Path(__file__).parent / ".cache" / "runs-stderr"
 # Repos that radar actions may run in but are not (yet) in project-registry.md.
 # Security: this list + registry paths + VAULT_PATH is the ONLY set of roots /api/run may cwd into.
+# /api/run is locked to Sonnet 5 (Tae 2026-09-03): headless runs never burn Opus/Fable quota.
+RUN_MODEL = "claude-sonnet-5"
+# claude stream-json can emit single lines >64 KiB (big tool results); asyncio's default
+# StreamReader limit raises "Separator is not found, and chunk exceed the limit" and kills the run.
+STREAM_LINE_LIMIT = 16 * 1024 * 1024
 RUN_CWD_EXTRA = [
     "/Users/tae279/DEV_TAE/Cursor Tae/beston-backend-console",
     "/Users/tae279/DEV_TAE/Cursor Tae/bestonfx-landing-a3dd23b4",
@@ -422,10 +445,12 @@ async def run_skill(request: Request):
         with stderr_path.open("wb") as stderr_file:
             proc = await asyncio.create_subprocess_exec(
                 str(CLAUDE_CLI), "-p", prompt,
+                "--model", RUN_MODEL,
                 "--permission-mode", PERMISSION_MODE,
                 "--output-format", "stream-json",
                 "--verbose",
                 stdout=asyncio.subprocess.PIPE,
+                limit=STREAM_LINE_LIMIT,
                 stderr=stderr_file,
                 cwd=str(run_cwd),
             )
@@ -552,6 +577,7 @@ async def chat(request: Request):
                 *cmd,
                 cwd=str(Path.home()),
                 stdout=asyncio.subprocess.PIPE,
+                limit=STREAM_LINE_LIMIT,
                 stderr=stderr_file,
             )
             deadline = asyncio.get_running_loop().time() + RUN_TIMEOUT_SEC
