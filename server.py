@@ -9,14 +9,13 @@ Local-only by design: binds 127.0.0.1:8787, no auth (matches WEB-UI-BRIEF.md).
 Run: uvicorn server:app --host 127.0.0.1 --port 8787
 """
 
+import asyncio
 import json
 import re
 import subprocess
-import threading
 import time
 from datetime import date, timedelta
 from pathlib import Path
-import tempfile
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -65,17 +64,16 @@ app.add_middleware(
 
 HANDOFF_PATH = Path(__file__).parent / "HANDOFF.md"
 USAGE_COUNTS_FILE = Path(__file__).parent / "dashboard-data" / "usage-counts.json"
-# Radar page data files
 DATA_DIR = Path(__file__).parent / "dashboard-data"
 RADAR_FILE = DATA_DIR / "radar.json"
 RADAR_STATE_FILE = DATA_DIR / "radar-state.json"
-
-# Allowlist of directories where /api/run cwd param can be used
+RUN_STDERR_DIR = Path(__file__).parent / ".cache" / "runs-stderr"
+# Repos that radar actions may run in but are not (yet) in project-registry.md.
+# Security: this list + registry paths + VAULT_PATH is the ONLY set of roots /api/run may cwd into.
 RUN_CWD_EXTRA = [
-    Path("/Users/tae279/Documents/DX/Projects/bestonfx-rms-internal/rms-app"),
-    Path("/Users/tae279/DEV_TAE/projects/line-oa"),
-    Path("/Users/tae279/DEV_TAE/projects/beston-console"),
-    Path("/Users/tae279/DEV_TAE/projects/agentic-os-dashboard"),
+    "/Users/tae279/DEV_TAE/Cursor Tae/beston-backend-console",
+    "/Users/tae279/DEV_TAE/Cursor Tae/bestonfx-landing-a3dd23b4",
+    "/Users/tae279/Documents/DX/Projects/bestonfx-rms-internal/rms-app",
 ]
 
 
@@ -88,44 +86,40 @@ RUN_CWD_EXTRA = [
 
 
 def _run_cwd_roots() -> list[Path]:
-    """Consolidate allowed directories: registry paths + RUN_CWD_EXTRA."""
-    roots = list(RUN_CWD_EXTRA)
-    # Add registry-based paths (from config, existing repos listed in registry)
-    try:
-        rows = registry.parse_registry()
-        for row in rows:
-            code_path = row.get("code", "")
-            if code_path and code_path.strip():
-                p = Path(code_path).resolve(strict=False)
-                if p.exists() and p not in roots:
-                    roots.append(p)
-    except Exception:
-        pass  # If registry fails, just use RUN_CWD_EXTRA
-    return roots
-
-
-def _resolve_run_cwd(raw_cwd: str | None) -> Path | None:
-    """
-    Resolve and validate cwd against allowlist.
-    Returns resolved Path if valid, None if not allowed.
-    """
-    if raw_cwd is None:
-        return Path(VAULT_PATH)
-
-    try:
-        resolved = Path(raw_cwd).resolve(strict=True)
-    except (ValueError, OSError):
-        return None
-
-    # Check if resolved path is within any allowed root
-    roots = _run_cwd_roots()
-    for root in roots:
+    roots = [Path(VAULT_PATH)]
+    for proj in registry.parse_registry():
+        for field in ("code", "docs"):
+            raw = (proj.get(field) or "").strip()
+            if raw.startswith("/"):
+                roots.append(Path(raw))
+    roots += [Path(p) for p in RUN_CWD_EXTRA]
+    out = []
+    for r in roots:
         try:
-            resolved.relative_to(root)
-            return resolved
-        except ValueError:
+            rr = r.expanduser().resolve(strict=True)
+        except (OSError, RuntimeError):
             continue
+        if rr.is_dir():
+            out.append(rr)
+    return out
 
+
+def _resolve_run_cwd(raw: str | None) -> Path | None:
+    """None/'' -> VAULT_PATH. Otherwise the resolved real path must be a directory equal to or
+    inside one allow-listed root. Anything else -> None (caller returns 403)."""
+    if not raw:
+        return Path(VAULT_PATH)
+    if not isinstance(raw, str) or "\x00" in raw:
+        return None
+    try:
+        p = Path(raw).expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    if not p.is_dir():
+        return None
+    for root in _run_cwd_roots():
+        if p == root or p.is_relative_to(root):
+            return p
     return None
 
 
@@ -301,6 +295,50 @@ def get_usage_counts():
     return {}
 
 
+def _read_json(path: Path, default):
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return default
+
+
+def _write_json_atomic(path: Path, data) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+@app.get("/api/radar")
+def get_radar():
+    data = _read_json(RADAR_FILE, {"version": 0, "projects": [], "decisions": [], "events": []})
+    state = _read_json(RADAR_STATE_FILE, {})
+    return {**data, "state": {"checked": dict(state.get("checked") or {})}}
+
+
+_RADAR_KEY_RE = re.compile(r"^[A-Za-z0-9_:.\-]{1,80}$")
+
+
+@app.post("/api/radar/check")
+async def radar_check(request: Request):
+    body = await request.json()
+    key = body.get("key")
+    checked = body.get("checked")
+    if not isinstance(key, str) or not _RADAR_KEY_RE.match(key) or not isinstance(checked, bool):
+        return JSONResponse({"error": "key (str) + checked (bool) required"}, status_code=400)
+    state = _read_json(RADAR_STATE_FILE, {})
+    checked_map = dict(state.get("checked") or {})
+    if checked:
+        checked_map[key] = True
+    else:
+        checked_map.pop(key, None)
+    state["checked"] = checked_map
+    _write_json_atomic(RADAR_STATE_FILE, state)
+    return {"ok": True, "checked": checked_map}
+
+
 def _bump_usage_count(skill_id: str):
     USAGE_COUNTS_FILE.parent.mkdir(parents=True, exist_ok=True)
     data = {}
@@ -311,6 +349,36 @@ def _bump_usage_count(skill_id: str):
             data = {}
     data[skill_id] = int(data.get(skill_id, 0)) + 1
     USAGE_COUNTS_FILE.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _run_stderr_path(kind: str, label: str) -> Path:
+    RUN_STDERR_DIR.mkdir(parents=True, exist_ok=True)
+    slug = core.slugify(label) or kind
+    return RUN_STDERR_DIR / f"{time.time_ns()}-{slug}.log"
+
+
+async def _terminate_process(proc: asyncio.subprocess.Process) -> None:
+    if proc.returncode is not None:
+        return
+    try:
+        proc.terminate()
+    except ProcessLookupError:
+        return
+    try:
+        await asyncio.wait_for(proc.wait(), timeout=5)
+    except asyncio.TimeoutError:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            return
+        await proc.wait()
+
+
+async def _wait_for_process(proc: asyncio.subprocess.Process, deadline: float) -> None:
+    remaining = deadline - asyncio.get_running_loop().time()
+    if remaining <= 0:
+        raise asyncio.TimeoutError
+    await asyncio.wait_for(proc.wait(), timeout=remaining)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -344,73 +412,84 @@ async def run_skill(request: Request):
         return JSONResponse({"error": "cwd not allowed"}, status_code=403)
 
     async def event_gen():
-
-        proc = subprocess.Popen(
-            [
-                str(CLAUDE_CLI), "-p", prompt,
-                "--permission-mode", PERMISSION_MODE,
-                "--output-format", "stream-json",
-                "--verbose",
-            ],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=str(run_cwd), text=True, bufsize=1,
-            encoding="utf-8", errors="replace",
-        )
         accumulated_text = ""
         phases: list[str] = []
         cost_usd = None
         tokens_in = tokens_out = None
         error = None
-        start = time.time()
+        stderr_path = _run_stderr_path("run", label)
 
-        yield {"event": "phase", "data": json.dumps({"phase": "starting", "label": label})}
+        with stderr_path.open("wb") as stderr_file:
+            proc = await asyncio.create_subprocess_exec(
+                str(CLAUDE_CLI), "-p", prompt,
+                "--permission-mode", PERMISSION_MODE,
+                "--output-format", "stream-json",
+                "--verbose",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=stderr_file,
+                cwd=str(run_cwd),
+            )
+            deadline = asyncio.get_running_loop().time() + RUN_TIMEOUT_SEC
 
-        try:
-            for line in iter(proc.stdout.readline, ""):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    evt = json.loads(line)
-                except json.JSONDecodeError:
-                    accumulated_text += line + "\n"
-                    continue
-                t = evt.get("type")
-                if t == "assistant":
-                    for block in evt.get("message", {}).get("content", []):
-                        if block.get("type") == "text":
-                            chunk = block.get("text", "")
-                            accumulated_text += chunk
-                            yield {"event": "text", "data": json.dumps({"chunk": chunk})}
-                        elif block.get("type") == "tool_use":
-                            name = block.get("name", "tool")
-                            phases.append(name)
-                            yield {"event": "phase", "data": json.dumps({"phase": name})}
-                elif t == "result":
-                    cost_usd = evt.get("total_cost_usd") or evt.get("cost_usd")
-                    usage = evt.get("usage", {})
-                    tokens_in = usage.get("input_tokens")
-                    tokens_out = usage.get("output_tokens")
-                    if evt.get("subtype") != "success":
-                        error = evt.get("result") or evt.get("subtype")
-                elif t == "system" and evt.get("subtype") == "init":
-                    servers = evt.get("mcp_servers")
-                    if servers:
-                        core.save_mcp_state(servers)
-                elif t == "rate_limit_event":
-                    core.save_rate_limit(evt)
+            try:
+                yield {"event": "phase", "data": json.dumps({"phase": "starting", "label": label, "pid": proc.pid, "cwd": str(run_cwd)})}
 
-                if time.time() - start > RUN_TIMEOUT_SEC:
-                    proc.kill()
-                    error = "timeout"
-                    break
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        raise asyncio.TimeoutError
+                    line_bytes = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
+                    if not line_bytes:
+                        break
+                    line = line_bytes.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        evt = json.loads(line)
+                    except json.JSONDecodeError:
+                        accumulated_text += line + "\n"
+                        continue
+                    t = evt.get("type")
+                    if t == "assistant":
+                        for block in evt.get("message", {}).get("content", []):
+                            if block.get("type") == "text":
+                                chunk = block.get("text", "")
+                                accumulated_text += chunk
+                                yield {"event": "text", "data": json.dumps({"chunk": chunk})}
+                            elif block.get("type") == "tool_use":
+                                name = block.get("name", "tool")
+                                phases.append(name)
+                                yield {"event": "phase", "data": json.dumps({"phase": name})}
+                    elif t == "result":
+                        cost_usd = evt.get("total_cost_usd") or evt.get("cost_usd")
+                        usage = evt.get("usage", {})
+                        tokens_in = usage.get("input_tokens")
+                        tokens_out = usage.get("output_tokens")
+                        if evt.get("subtype") != "success":
+                            error = evt.get("result") or evt.get("subtype")
+                    elif t == "system" and evt.get("subtype") == "init":
+                        servers = evt.get("mcp_servers")
+                        if servers:
+                            core.save_mcp_state(servers)
+                    elif t == "rate_limit_event":
+                        core.save_rate_limit(evt)
 
-            proc.wait(timeout=10)
-            if proc.returncode != 0 and not error:
-                stderr_text = proc.stderr.read() if proc.stderr else ""
-                error = f"exit {proc.returncode}: {stderr_text[:500]}"
-        except Exception as e:
-            error = str(e)
+                await _wait_for_process(proc, deadline)
+                if proc.returncode != 0 and not error:
+                    stderr_file.flush()
+                    stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
+                    error = f"exit {proc.returncode}: {stderr_text[:500]}"
+            except asyncio.TimeoutError:
+                error = "timeout"
+                await _terminate_process(proc)
+            except asyncio.CancelledError:
+                await _terminate_process(proc)
+                raise
+            except Exception as e:
+                error = str(e)
+                await _terminate_process(proc)
+            finally:
+                await _terminate_process(proc)
 
         ok = error is None
         output = accumulated_text.strip() or "(no text output)"
@@ -461,49 +540,72 @@ async def chat(request: Request):
         if session_id:
             cmd += ["--resume", session_id]
 
-        proc = subprocess.Popen(
-            cmd, cwd=str(Path.home()), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, bufsize=1, encoding="utf-8", errors="replace",
-        )
         text = ""
         tool_names: list[str] = []
         cost_usd = None
         sid = session_id
         error = None
+        stderr_path = _run_stderr_path("chat", "chat")
 
-        try:
-            for line in iter(proc.stdout.readline, ""):
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    evt = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                new_sid = evt.get("session_id")
-                if new_sid:
-                    sid = new_sid
-                t = evt.get("type")
-                if t == "assistant":
-                    for block in evt.get("message", {}).get("content", []):
-                        if block.get("type") == "text":
-                            chunk = block.get("text", "")
-                            text += chunk
-                            yield {"event": "text", "data": json.dumps({"chunk": chunk})}
-                        elif block.get("type") == "tool_use":
-                            name = block.get("name", "tool")
-                            tool_names.append(name)
-                            yield {"event": "tool", "data": json.dumps({"name": name})}
-                elif t == "result":
-                    cost_usd = evt.get("total_cost_usd") or evt.get("cost_usd")
-                    if evt.get("subtype") != "success":
-                        error = evt.get("result") or evt.get("subtype")
-            proc.wait(timeout=300)
-            if proc.returncode != 0 and not error:
-                stderr_text = proc.stderr.read() if proc.stderr else ""
-                error = f"exit {proc.returncode}: {stderr_text[:300]}"
-        except Exception as e:
-            error = str(e)
+        with stderr_path.open("wb") as stderr_file:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=str(Path.home()),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=stderr_file,
+            )
+            deadline = asyncio.get_running_loop().time() + RUN_TIMEOUT_SEC
+
+            try:
+                while True:
+                    remaining = deadline - asyncio.get_running_loop().time()
+                    if remaining <= 0:
+                        raise asyncio.TimeoutError
+                    line_bytes = await asyncio.wait_for(proc.stdout.readline(), timeout=remaining)
+                    if not line_bytes:
+                        break
+                    line = line_bytes.decode("utf-8", errors="replace").strip()
+                    if not line:
+                        continue
+                    try:
+                        evt = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    new_sid = evt.get("session_id")
+                    if new_sid:
+                        sid = new_sid
+                    t = evt.get("type")
+                    if t == "assistant":
+                        for block in evt.get("message", {}).get("content", []):
+                            if block.get("type") == "text":
+                                chunk = block.get("text", "")
+                                text += chunk
+                                yield {"event": "text", "data": json.dumps({"chunk": chunk})}
+                            elif block.get("type") == "tool_use":
+                                name = block.get("name", "tool")
+                                tool_names.append(name)
+                                yield {"event": "tool", "data": json.dumps({"name": name})}
+                    elif t == "result":
+                        cost_usd = evt.get("total_cost_usd") or evt.get("cost_usd")
+                        if evt.get("subtype") != "success":
+                            error = evt.get("result") or evt.get("subtype")
+
+                await _wait_for_process(proc, deadline)
+                if proc.returncode != 0 and not error:
+                    stderr_file.flush()
+                    stderr_text = stderr_path.read_text(encoding="utf-8", errors="replace")
+                    error = f"exit {proc.returncode}: {stderr_text[:300]}"
+            except asyncio.TimeoutError:
+                error = "timeout"
+                await _terminate_process(proc)
+            except asyncio.CancelledError:
+                await _terminate_process(proc)
+                raise
+            except Exception as e:
+                error = str(e)
+                await _terminate_process(proc)
+            finally:
+                await _terminate_process(proc)
 
         yield {
             "event": "done",
@@ -539,83 +641,6 @@ async def kill_pid(request: Request):
         return JSONResponse({"error": "pid required"}, status_code=400)
     ok = monitors.kill_server(pid)
     return {"ok": ok}
-
-
-
-
-# ═══════════════════════════════════════════════════════════
-# Radar endpoints — GET /api/radar + POST /api/radar/check
-# ═══════════════════════════════════════════════════════════
-
-
-@app.get("/api/radar")
-def get_radar():
-    """Return radar data merged with checklist state from radar-state.json."""
-    try:
-        with open(RADAR_FILE, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-    except FileNotFoundError:
-        return JSONResponse({"error": "radar.json not found"}, status_code=404)
-
-    # Load state if it exists
-    state = {}
-    if RADAR_STATE_FILE.exists():
-        try:
-            with open(RADAR_STATE_FILE, 'r', encoding='utf-8') as f:
-                state = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-
-    # Merge state into projects[*].tae_checklist[*].checked
-    for project in data.get("projects", []):
-        for item in project.get("tae_checklist", []):
-            item_id = item.get("id", "")
-            item["checked"] = state.get(item_id, False)
-
-    return data
-
-
-@app.post("/api/radar/check")
-async def post_radar_check(request: Request):
-    """
-    Update checklist item state.
-    Body: {key: "proj:c1", checked: bool}
-    """
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return JSONResponse({"error": "invalid json"}, status_code=400)
-
-    key = body.get("key", "")
-    checked = body.get("checked", False)
-
-    # Validate key format: alphanumeric, underscore, colon (for proj:c1 format)
-    if not re.match(r"^[a-zA-Z0-9_:]+$", key):
-        return JSONResponse({"error": "invalid key format"}, status_code=400)
-
-    # Read current state
-    state = {}
-    if RADAR_STATE_FILE.exists():
-        try:
-            with open(RADAR_STATE_FILE, 'r', encoding='utf-8') as f:
-                state = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-
-    # Update the key
-    state[key] = bool(checked)
-
-    # Atomic write: write to temp file, then replace
-    try:
-        fd, temp_path = tempfile.mkstemp(dir=DATA_DIR, suffix='.json')
-        with open(fd, 'w', encoding='utf-8') as f:
-            json.dump(state, f, indent=2)
-
-        # Replace original atomically
-        Path(temp_path).replace(RADAR_STATE_FILE)
-        return {"success": True}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.get("/api/health")
