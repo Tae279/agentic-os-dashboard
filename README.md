@@ -176,6 +176,10 @@ Radar data lives in `dashboard-data/radar.json`. This file is gitignored because
 
 The action `cwd` must resolve inside the backend allowlist. JSON actions provide Claude prompts only; the UI does not execute shell commands stored in Radar data.
 
+Runs started from Radar (and every `POST /api/run`) are locked to **Claude Sonnet 5** (`RUN_MODEL` in `server.py`) so headless work never spends Opus/Fable quota. The backend also rejects browser POSTs that do not come from the dashboard origin or are not `application/json`, so a random web page cannot start a run on your machine.
+
+To share a read-only snapshot of Radar (no action buttons), run `node scripts/export-radar-artifact.mjs` — it writes a single self-contained HTML file to `~/Documents/DX/artifacts/<date>-dx-project-radar.html` from `radar.json`.
+
 ---
 
 ## Step 5 — Adapt it to you (with Claude Code)

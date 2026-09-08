@@ -47,7 +47,8 @@ export function RadarFilters({
               key={f.id}
               type="button"
               onClick={() => onFilter(f.id)}
-              className={`px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] font-mono-num ${
+              aria-pressed={active}
+              className={`inline-flex items-center min-h-10 md:min-h-0 px-3 md:px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] tabular-nums cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
                 active
                   ? "bg-accent-soft text-fg border-accent/50"
                   : "text-fg-dim hover:text-fg"
@@ -63,7 +64,7 @@ export function RadarFilters({
         value={query}
         onChange={(e) => onQuery(e.target.value)}
         placeholder="ค้นหา · กด /"
-        className="h-8 text-xs max-w-xs"
+        className="h-10 md:h-8 text-xs w-full sm:max-w-xs"
       />
     </div>
   );

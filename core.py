@@ -536,10 +536,36 @@ def _hermes_send_command() -> list | None:
     return None
 
 
+LINE_NOTIFY_CONFIG = Path.home() / ".config" / "dx" / "line-notify.json"
+
+
+def _notify_line(message: str) -> None:
+    """Push via LINE Messaging API. No-op until Tae drops credentials at
+    ~/.config/dx/line-notify.json: {"channel_access_token": "...", "user_id": "U..."}"""
+    if not LINE_NOTIFY_CONFIG.exists():
+        return
+    try:
+        cfg = json.loads(LINE_NOTIFY_CONFIG.read_text(encoding="utf-8"))
+        token, uid = cfg.get("channel_access_token"), cfg.get("user_id")
+        if not token or not uid:
+            return
+        import requests  # streamlit dep; ships certifi (framework Python lacks system CAs)
+
+        requests.post(
+            "https://api.line.me/v2/bot/message/push",
+            json={"to": uid, "messages": [{"type": "text", "text": message}]},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
+    except Exception:
+        pass  # notification must never break a run
+
+
 def notify_run_done(label: str, ok: bool, cost: float | None) -> None:
     cost_txt = fmt_cost(_to_float(cost)) if cost else "$0.00"
     message = f"✅ {label} เสร็จแล้ว · {cost_txt}" if ok else f"❌ {label} ล้มเหลว"
     _notify_macos("Agentic OS", message)
+    _notify_line(f"🤖 Agentic OS\n{message}")
     try:
         send_cmd = _hermes_send_command()
         if send_cmd:

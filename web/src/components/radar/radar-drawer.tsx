@@ -1,7 +1,7 @@
 "use client";
 
 import { Chip, Drawer } from "@heroui/react";
-import { ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import type { RadarProject } from "@/lib/api";
 import { ageLabel, daysAgo, statusColor } from "@/lib/radar";
 
@@ -42,7 +42,6 @@ export function RadarDrawer({
       onOpenChange={(o) => {
         if (!o) onClose();
       }}
-      variant="blur"
     >
       <Drawer.Content placement="right" className="w-full sm:max-w-xl left-auto">
         <Drawer.Dialog className="bg-bg-elev text-fg">
@@ -76,11 +75,11 @@ export function RadarDrawer({
                   <Drawer.Heading className="font-display text-lg font-semibold">
                     {project.name}
                   </Drawer.Heading>
-                  <div className="text-[11px] text-fg-dim font-mono-num mt-1">
+                  <div className="text-[11px] text-fg-dim tabular-nums mt-1">
                     {project.phase} · {project.progress}% · {project.updated ?? "—"} ({ageLabel(age)})
                   </div>
                 </div>
-                <Drawer.CloseTrigger />
+                <Drawer.CloseTrigger className="min-h-11 min-w-11 md:min-h-0 md:min-w-0" />
               </Drawer.Header>
               <Drawer.Body className="space-y-4">
                 {children}
@@ -88,7 +87,10 @@ export function RadarDrawer({
                   <p className="text-sm text-fg">{project.next}</p>
                 </Section>
                 <Section label="ติดอะไร" hide={!project.blocker}>
-                  <p className="text-sm text-danger">{project.blocker}</p>
+                  <p className="flex items-start gap-1.5 text-sm text-danger">
+                    <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0" />
+                    <span>{project.blocker}</span>
+                  </p>
                 </Section>
                 <Section label="ข้อเท็จจริง" hide={project.facts.length === 0}>
                   <ul className="list-disc pl-4 text-xs text-fg-dim space-y-1">
@@ -119,7 +121,7 @@ export function RadarDrawer({
                         href={link.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] text-fg-dim hover:text-fg"
+                        className="inline-flex items-center gap-1 min-h-10 md:min-h-0 px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] text-fg-dim hover:text-fg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                       >
                         {link.label}
                         <ExternalLink size={12} />

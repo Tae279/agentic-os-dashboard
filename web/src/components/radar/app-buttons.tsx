@@ -5,7 +5,7 @@ import { Copy, ExternalLink } from "lucide-react";
 import { api, type DevServer, type RadarApp } from "@/lib/api";
 
 const PILL =
-  "inline-flex items-center gap-1 px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] text-fg-dim hover:text-fg transition-colors";
+  "inline-flex items-center gap-1 min-h-10 md:min-h-0 px-2.5 py-1 rounded-[var(--radius-chip)] hairline hairline-hover text-[11px] text-fg-dim hover:text-fg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60";
 
 export function AppButtons({
   apps,
@@ -46,11 +46,14 @@ export function AppButtons({
 
           const running = devservers.some((s) => s.port === app.port);
           return (
-            <span key={`${app.kind}-${app.label}-${app.port ?? ""}`} className="inline-flex items-center gap-1">
+            <span
+              key={`${app.kind}-${app.label}-${app.port ?? ""}`}
+              className="inline-flex flex-wrap items-center gap-1 min-w-0 max-w-full"
+            >
               {running ? (
                 <a href={app.url} target="_blank" rel="noreferrer" className={PILL}>
-                  <span className="size-1.5 rounded-full bg-good" />
-                  {app.label} · :{app.port}
+                  <span className="size-1.5 rounded-full bg-good" aria-hidden />
+                  <span className="whitespace-nowrap">{app.label} · :{app.port}</span>
                 </a>
               ) : (
                 <button
@@ -61,20 +64,21 @@ export function AppButtons({
                   title="เปิดโฟลเดอร์ใน Finder"
                   className={PILL}
                 >
-                  <span className="size-1.5 rounded-full bg-fg-mute" />
-                  {app.label} · ยังไม่รัน
+                  <span className="size-1.5 rounded-full bg-fg-mute" aria-hidden />
+                  <span className="whitespace-nowrap">{app.label} · ยังไม่รัน</span>
                 </button>
               )}
               {!running && app.cmd ? (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[var(--radius-chip)] hairline font-mono-num text-[11px] text-fg-dim">
-                  {app.cmd}
+                <span className="inline-flex items-center gap-1 min-w-0 max-w-full px-2 py-1 rounded-[var(--radius-chip)] hairline font-mono-num text-[11px] text-fg-dim">
+                  <span className="truncate min-w-0">{app.cmd}</span>
                   <button
                     type="button"
                     onClick={() => copyCmd(app.cmd!)}
-                    className="text-fg-mute hover:text-fg"
+                    className={"inline-flex items-center justify-center size-10 md:size-6 shrink-0 rounded-[var(--radius-chip)] text-fg-mute hover:text-fg cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"}
+                    aria-label="คัดลอกคำสั่ง"
                     title="คัดลอกคำสั่ง"
                   >
-                    {copied === app.cmd ? "คัดลอกแล้ว" : <Copy size={12} />}
+                    {copied === app.cmd ? "คัดลอกแล้ว" : <Copy size={12} aria-hidden />}
                   </button>
                 </span>
               ) : null}

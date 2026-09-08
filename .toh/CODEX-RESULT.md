@@ -1,0 +1,14 @@
+# CODEX RESULT
+- ทำ: แก้ `/api/run` และ `/api/chat` เป็น async subprocess พร้อม per-run stderr, hard deadline, timeout/disconnect termination
+- ทำ: optimistic toggle revert เมื่อ fetch ล้ม และเพิ่ม Decisions, Timeline, Radar home card, command-palette pages
+- ทำ: อัปเดต README, HANDOFF, plan/progress และ [screenshots](/Users/tae279/DEV_TAE/projects/agentic-os-dashboard/.cache/screenshots/) ครบ 6 ภาพ
+- ตรวจ: `.venv/bin/python -m py_compile server.py` → exit 0
+- ตรวจ: `cd web && npx tsc --noEmit` → exit 0
+- ตรวจ: `cd web && npm run build` → exit 0; Next.js 16.2.10 routes `/`, `/portfolio`, `/radar`
+- ตรวจ: `curl 127.0.0.1:8787/api/health` → HTTP 200; cwd `/tmp` → HTTP 403
+- ตรวจภาพ: 3 tabs ที่ 1440/390; ทุก view `scrollWidth == innerWidth`
+- ยังไม่ผ่าน: smoke และ LINE OA action ได้ `starting → text → done` แต่ `done ok:false`; ไม่มี run file ใหม่
+- เหตุผล: Claude CLI แจ้ง `OAuth session expired and could not be refreshed`; ไม่แตะ credential ตาม Rules
+- commits: `0a5d43d` fix(server) · `f7a40d7` feat(radar) · `0273eb0` docs
+- ไม่ push, ไม่ deploy, ไม่รวม/ไม่แก้ `core.py`; production build ยังรันที่ localhost:3000
+- 🟡 Status: โค้ด/UI/docs/commits ผ่าน; E2E agent run รอ Claude CLI sign-in ใหม่
