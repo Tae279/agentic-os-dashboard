@@ -61,6 +61,11 @@ export function DecisionCards({
               <Chip size="sm" variant="soft" color={impact.color}>
                 {impact.label}
               </Chip>
+              <span className="flex gap-0.5" aria-hidden>
+                {[1, 2, 3].map((bar) => (
+                  <span key={bar} className="w-1 h-2.5 bg-bg-elev" style={bar <= decision.impact ? { background: decision.impact === 3 ? "var(--danger)" : decision.impact === 2 ? "var(--warn)" : "var(--ring-mid)" } : undefined} />
+                ))}
+              </span>
               {project ? (
                 <button
                   type="button"
@@ -78,11 +83,11 @@ export function DecisionCards({
             </div>
 
             <h2 className="font-display text-base text-fg mt-2">{decision.question}</h2>
-            <p className="text-xs text-fg-dim mt-1">{decision.why}</p>
+            <p className="text-xs text-fg-dim mt-1 line-clamp-2">{decision.why}</p>
 
             <div className="mt-3">
               <div className="text-[11px] uppercase tracking-[0.14em] text-fg-mute">แนะนำ</div>
-              <p className="text-sm text-fg">{decision.rec}</p>
+              <p className="text-sm text-fg line-clamp-2">{decision.rec}</p>
             </div>
             <div className="mt-3">
               <div className="text-[11px] uppercase tracking-[0.14em] text-fg-mute">ต้นทุน</div>

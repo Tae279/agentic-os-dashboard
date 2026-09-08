@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Tabs } from "@heroui/react";
 import { api, streamPost, type DevServer, type RadarAction, type RadarProject, type RadarResponse } from "@/lib/api";
-import { FILTERS, kpis, type RadarRun } from "@/lib/radar";
+import { FILTERS, type RadarRun } from "@/lib/radar";
 import { Mascot } from "@/components/dashboard/quick-nav";
 import { RunOutput } from "@/components/dashboard/run-output";
 import { ActionBar } from "@/components/radar/action-bar";
 import { AppButtons } from "@/components/radar/app-buttons";
-import { RadarKpis } from "@/components/radar/radar-kpis";
+import { RadarOverview } from "@/components/radar/radar-overview";
 import { RadarFilters } from "@/components/radar/radar-filters";
-import { RadarTable } from "@/components/radar/radar-table";
+import { ProjectGrid } from "@/components/radar/project-grid";
 import { RadarDrawer } from "@/components/radar/radar-drawer";
 import { TaeChecklist } from "@/components/radar/tae-checklist";
 import { DecisionCards } from "@/components/radar/decision-cards";
@@ -131,9 +131,12 @@ export default function RadarPage() {
   }, [data]);
 
   useEffect(() => {
-    refresh();
+    const initial = setTimeout(refresh, 0);
     const id = setInterval(refresh, 30_000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(id);
+    };
   }, [refresh]);
 
   const counts = useMemo(() => {
@@ -155,7 +158,6 @@ export default function RadarPage() {
   }, [data, filter, query]);
 
   const selected = data?.projects.find((p) => p.id === selectedId) ?? null;
-  const kpiItems = data ? kpis(data) : [];
 
   return (
     <div className="flex-1 flex flex-col overflow-x-hidden">
@@ -196,11 +198,11 @@ export default function RadarPage() {
       <main className="flex-1 px-6 pb-8 space-y-4 min-w-0">
         {!data ? (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => (
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-24 rounded-[var(--radius-card)] hairline bg-bg-card/60 animate-pulse"
+                  className="md:col-span-2 h-56 rounded-[var(--radius-card)] hairline bg-bg-card/60 animate-pulse"
                 />
               ))}
             </div>
@@ -214,16 +216,14 @@ export default function RadarPage() {
               phase={run?.phase ?? null}
               onClose={() => setRun(null)}
             />
-            <RadarKpis
-              items={kpiItems}
+            <RadarOverview
+              data={data}
               activeFilter={filter}
-              onPick={(k) => {
-                if (k.tab) setTab(k.tab);
-                if (k.filter) {
-                  setFilter(k.filter);
-                  setTab("projects");
-                }
+              onFilter={(id) => {
+                setFilter(id);
+                setTab("projects");
               }}
+              onTab={setTab}
             />
 
             <Tabs
@@ -259,7 +259,7 @@ export default function RadarPage() {
                   onQuery={setQuery}
                   counts={counts}
                 />
-                <RadarTable
+                <ProjectGrid
                   projects={visible}
                   onOpen={setSelectedId}
                   checked={data.state.checked}

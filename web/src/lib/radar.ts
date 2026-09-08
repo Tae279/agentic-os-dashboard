@@ -1,4 +1,4 @@
-import type { RadarProject, RadarResponse, RadarStatus } from "@/lib/api";
+import type { RadarEvent, RadarProject, RadarResponse, RadarStatus } from "@/lib/api";
 
 export type RadarRun = {
   actionId: string;
@@ -70,6 +70,66 @@ export function statusStripeClass(s: RadarStatus): string {
 
 const ATTENTION_IDS = ["landing", "support", "lineoa"];
 
+export type WaitingKey = "tae" | "external" | "agent";
+
+export function waitingKey(p: RadarProject): WaitingKey {
+  return p.waiting ?? "agent";
+}
+
+export const WAITING_LABEL: Record<WaitingKey, string> = {
+  tae: "รอเต้",
+  external: "รอภายนอก",
+  agent: "agent ทำต่อได้",
+};
+
+export function statusCounts(projects: RadarProject[]): Record<RadarStatus, number> {
+  const counts: Record<RadarStatus, number> = { live: 0, building: 0, behind: 0, quiet: 0, planning: 0 };
+  for (const project of projects) counts[project.status]++;
+  return counts;
+}
+
+export function waitingCounts(projects: RadarProject[]): Record<WaitingKey, number> {
+  const counts: Record<WaitingKey, number> = { tae: 0, external: 0, agent: 0 };
+  for (const project of projects) counts[waitingKey(project)]++;
+  return counts;
+}
+
+export function portfolioProgress(projects: RadarProject[]): number {
+  const tracked = projects.filter((p) => !p.gap);
+  return tracked.length ? Math.round(tracked.reduce((sum, p) => sum + p.progress, 0) / tracked.length) : 0;
+}
+
+export function attentionRank(p: RadarProject): number {
+  if (p.gap) return 6;
+  if (p.status === "behind") return 0;
+  if (p.waiting === "tae") return 1;
+  if (p.uncommitted) return 2;
+  if (p.status === "building") return 3;
+  if (p.status === "live") return 4;
+  return 5;
+}
+
+export function eventStatus(
+  e: RadarEvent,
+  projects: RadarProject[],
+): "default" | "current" | "success" | "warning" | "danger" | "muted" {
+  if (e.code === "ALL") return "current";
+  const project = projects.find((p) => p.code === e.code);
+  if (!project) return "muted";
+  const color = statusColor(project.status);
+  return color === "accent" ? "current" : color;
+}
+
+export function activityStrip(events: RadarEvent[], days = 14, today = new Date()): { date: string; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const event of events) counts.set(event.date, (counts.get(event.date) ?? 0) + 1);
+  const end = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(end - (days - 1 - index) * 86_400_000).toISOString().slice(0, 10);
+    return { date, count: counts.get(date) ?? 0 };
+  });
+}
+
 export const FILTERS: { id: string; label: string; f: (p: RadarProject) => boolean }[] = [
   { id: "all", label: "ทั้งหมด", f: () => true },
   {
@@ -79,6 +139,7 @@ export const FILTERS: { id: string; label: string; f: (p: RadarProject) => boole
   },
   { id: "live", label: "ใช้งานจริง", f: (p) => !!p.prod },
   { id: "tae", label: "รอเต้", f: (p) => p.waiting === "tae" },
+  { id: "external", label: "รอภายนอก", f: (p) => p.waiting === "external" },
   { id: "uncommitted", label: "ยังไม่ push", f: (p) => !!p.uncommitted },
   { id: "behind", label: "prod ตามหลัง", f: (p) => p.status === "behind" },
   {
