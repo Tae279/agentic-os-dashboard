@@ -1,6 +1,7 @@
 # Plan — DX Command Center v11 · "Radar actions refresh"
 
-Status: in-progress
+Status: done — ยกเว้น publish artifact (BLOCKED รอเต้อนุญาต)
+Update 2026-10-05: ground truth ด้านล่างเป็นของ 3 ก.ย. ล้าสมัยแล้ว — radar.json ถูกรีเฟรชโดย audit 8 ก.ย. ไปก่อน จึงตรวจซ้ำกับ GitHub จริงแล้วแก้ action ตามความจริงวันที่ 5 ต.ค. (landing P0 merge ใน main แล้ว · console redesign merge ผ่าน PR #41 แล้ว → เปลี่ยนเป็นงานตรวจ PR ค้าง)
 Created: 2026-09-03 · Author: Claude (Fable 5.1) · Owner: Tae
 Repo: `~/DEV_TAE/projects/agentic-os-dashboard` (branch `feat/web-ui`; commit ผ่าน worktree `brave-dubinsky-b270c2`)
 
@@ -18,30 +19,30 @@ Repo: `~/DEV_TAE/projects/agentic-os-dashboard` (branch `feat/web-ui`; commit �
 | rms | `git status` + `active.md` | ยัง dirty จริง 23 ไฟล์ +1237/-378 · "ยังไม่ push" → action เดิมยังถูกต้อง คงไว้ |
 
 ## Done When
-- [ ] `curl :8787/api/radar` → ทุก action label ตรงกับตารางข้างบน (quote ผลจริง)
-- [ ] lineoa/landing มี `updated/next/blocker/facts/progress` ใหม่ · events มี 3 รายการของ 3 ก.ย.
-- [ ] `node scripts/export-radar-artifact.mjs` สำเร็จ → publish ทับ artifact `2edbc4ec` (read ก่อน publish)
-- [ ] `button.tsx` ไม่มี `transition-all` · quick-nav ไม่มี emoji เป็นไอคอน
-- [ ] `cd web && npx tsc --noEmit` clean + `npm run build` exit 0 (รันใน worktree ไม่ทับ `.next` ของ dev)
-- [ ] screenshot 1440 + 390 หน้า `/` และ `/radar` ส่งเต้
-- [ ] commit บน `feat/web-ui` (ห้าม main · แยกจาก core.py) + HANDOFF v11 + progress.md
+- [x] `curl :8787/api/radar` → ทุก action label ตรงกับตารางข้างบน (quote ผลจริง)
+- [x] lineoa/landing มี `updated/next/blocker/facts/progress` ใหม่ · events มี 3 รายการของ 3 ก.ย.
+- [!] BLOCKED (export + selfcheck ผ่าน · publish ทับ 2edbc4ec ถูก auto-mode classifier ปฏิเสธ รอเต้อนุญาต): `node scripts/export-radar-artifact.mjs` สำเร็จ → publish ทับ artifact `2edbc4ec` (read ก่อน publish)
+- [x] `button.tsx` ไม่มี `transition-all` · quick-nav ไม่มี emoji เป็นไอคอน
+- [x] `cd web && npx tsc --noEmit` clean + `npm run build` exit 0 (รันใน worktree ไม่ทับ `.next` ของ dev)
+- [x] screenshot 1440 + 390 หน้า `/` และ `/radar` ส่งเต้
+- [x] commit บน `feat/web-ui` (ห้าม main · แยกจาก core.py) + HANDOFF v11 + progress.md
 
 ## Phase A — radar.json (T110 + T111)
-- [ ] T110 เขียน `actions[]` ใหม่: landing → `landing-p0-fix` (แก้ P0-1 + P0-2 บน feature branch) · lineoa → `lineoa-step3-merge` (รวมงานขั้น ③ ตาม STEP4 handoff) · console → ลบ action ที่ตายแล้ว · rms → คงเดิม · ทุก prompt self-contained + HARD STOPS
-- [ ] T111 อัปเดต `updated/next/blocker/facts/progress/status` ของ landing + lineoa + console · เพิ่ม 3 events ของ 3 ก.ย. · `verified` → 2026-09-03
+- [x] T110 เขียน `actions[]` ใหม่: landing → `landing-p0-fix` (แก้ P0-1 + P0-2 บน feature branch) · lineoa → `lineoa-step3-merge` (รวมงานขั้น ③ ตาม STEP4 handoff) · console → ลบ action ที่ตายแล้ว · rms → คงเดิม · ทุก prompt self-contained + HARD STOPS
+- [x] T111 อัปเดต `updated/next/blocker/facts/progress/status` ของ landing + lineoa + console · เพิ่ม 3 events ของ 3 ก.ย. · `verified` → 2026-09-03
 - **Checkpoint A:** `curl :8787/api/radar` quote label ครบ
 
 ## Phase B — export + publish (T111b)
-- [ ] `node scripts/export-radar-artifact.mjs` → Artifact read `2edbc4ec` → publish ทับ
+- [!] BLOCKED (export + selfcheck ผ่าน · publish ทับ 2edbc4ec ถูก auto-mode classifier ปฏิเสธ รอเต้อนุญาต): `node scripts/export-radar-artifact.mjs` → Artifact read `2edbc4ec` → publish ทับ
 
 ## Phase C — design leftovers (T112)
-- [ ] Design OS Step 0 (`_uistack.py` + `dx-design-router`) ก่อนแตะ UI
-- [ ] `web/src/components/ui/button.tsx` `transition-all` → ระบุ property ตาม DESIGN.md
-- [ ] `web/src/components/dashboard/quick-nav.tsx` emoji mascot → ไอคอน lucide ตาม DESIGN.md
+- [x] Design OS Step 0 (`_uistack.py` + `dx-design-router`) ก่อนแตะ UI
+- [x] `web/src/components/ui/button.tsx` `transition-all` → ระบุ property ตาม DESIGN.md
+- [x] `web/src/components/dashboard/quick-nav.tsx` emoji mascot → ไอคอน lucide ตาม DESIGN.md
 - **Checkpoint C:** tsc clean · build exit 0 · screenshot 1440/390
 
 ## Phase D — ship
-- [ ] commit บน `feat/web-ui` ผ่าน worktree · HANDOFF v11 · progress.md
+- [x] commit บน `feat/web-ui` ผ่าน worktree · HANDOFF v11 · progress.md
 
 ## Hard stops
 ห้ามแตะ main · ห้าม deploy · ห้ามแตะ .env/secrets · ห้าม revert uncommitted `core.py` · ห้าม `git add .` · ห้าม `npm run build` ทับ `.next` ที่ `next dev` ใช้อยู่
