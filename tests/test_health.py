@@ -71,5 +71,19 @@ class Overall(unittest.TestCase):
         self.assertEqual(health.overall([{"status": "pass"}, {"status": "skip"}]), "pass")
 
 
+class NotifyOffSwitch(unittest.TestCase):
+    def test_flag_file_blocks_line_push(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "notify-off").touch()
+            with mock.patch.object(health, "CACHE_DIR", Path(d)), \
+                 mock.patch.object(health.urllib.request, "urlopen") as net:
+                self.assertFalse(health._line_push("x"))
+                net.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
