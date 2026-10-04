@@ -40,6 +40,12 @@ export default function PortfolioPage() {
           >
             radar
           </Link>
+          <Link
+            href="/health"
+            className="text-xs text-fg-dim hover:text-fg px-3 py-1.5 rounded-[var(--radius-chip)] hairline hairline-hover transition-colors"
+          >
+            ตรวจระบบ
+          </Link>
         </nav>
       </header>
 
