@@ -275,7 +275,8 @@ def evaluate_login(state: dict, status: dict | None, now: float | None = None) -
 # ─── LINE alerts ─────────────────────────────────────────────
 
 def _line_push(text: str) -> bool:
-    if os.environ.get("DOCTOR_NOTIFY", "1") == "0":
+    # Persistent off switch: `touch .cache/notify-off` (survives restarts the doctor itself spawns)
+    if os.environ.get("DOCTOR_NOTIFY", "1") == "0" or (CACHE_DIR / "notify-off").exists():
         print(f"[doctor] (notify off) {text}", file=sys.stderr)
         return False
     try:

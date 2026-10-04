@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "@heroui/styles";
+@import "@heroui-pro/react/css/components/radial-chart.css";
+@import "@heroui-pro/react/css/components/timeline.css";
 
 :root {
   /* DX cockpit tokens — ported 1:1 from theme.py PREMIUM_CSS (2026-07-06) */
