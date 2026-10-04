@@ -45,6 +45,17 @@ export type ValueSeries = {
 export type Integration = { name: string; status: string };
 export type VaultPulseItem = { verb: string; name: string; dir: string; age_sec: number; age_fmt: string; obsidian_uri: string };
 export type ActivitySeries = { dates: string[]; day_counts: number[]; cumulative: number[]; total: number; last_30d: number };
+export type DoctorStatus = "pass" | "warn" | "fail" | "skip";
+export type DoctorCheck = { id: string; label: string; status: DoctorStatus; detail: string; fix: string };
+export type Doctor = {
+  ts: number | null;
+  overall: DoctorStatus | "unknown";
+  checks: DoctorCheck[];
+  probe: { ts: number; ok: boolean; detail: string } | null;
+  heal_notes: string[];
+  heal_log: { ts: number; target: string }[];
+  last_alerts: string[];
+};
 export type RunsPerDay = { labels: string[]; values: number[]; total: number };
 
 async function getJSON<T>(path: string): Promise<T> {
@@ -73,6 +84,12 @@ export const api = {
   activity: () => getJSON<ActivitySeries>("/api/activity"),
   runsPerDay: () => getJSON<RunsPerDay>("/api/runs-per-day"),
   openTerminal: () => fetch(`${API_BASE}/api/open-terminal`, { method: "POST" }),
+  doctor: () => getJSON<Doctor>("/api/doctor"),
+  doctorRun: async (probe: boolean): Promise<Doctor> => {
+    const res = await fetch(`${API_BASE}/api/doctor/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ probe }) });
+    if (!res.ok) throw new Error(`/api/doctor/run -> ${res.status}`);
+    return res.json();
+  },
   radar: () => getJSON<RadarResponse>("/api/radar"),
   radarCheck: (key: string, checked: boolean) => fetch(`${API_BASE}/api/radar/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key, checked }) }),
 };

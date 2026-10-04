@@ -185,6 +185,12 @@ export default function RadarPage() {
               <span aria-current="page" className="inline-flex items-center min-h-10 md:min-h-0 px-3 py-1.5 rounded-[var(--radius-chip)] hairline bg-bg-card text-fg">
                 radar
               </span>
+              <Link
+                href="/health"
+                className="inline-flex items-center min-h-10 md:min-h-0 px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              >
+                ตรวจระบบ
+              </Link>
             </nav>
             <span className="font-mono-num text-[11px] text-fg-dim">
               ข้อมูล verified {data?.verified ?? "—"}
