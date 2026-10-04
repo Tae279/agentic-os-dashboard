@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Prompt, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { HealthBanner } from "@/components/dashboard/health-banner";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -36,7 +37,10 @@ export default function RootLayout({
       data-theme="dark"
       className={`${spaceGrotesk.variable} ${prompt.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-glow">{children}</body>
+      <body className="min-h-full flex flex-col bg-glow">
+        <HealthBanner />
+        {children}
+      </body>
     </html>
   );
 }

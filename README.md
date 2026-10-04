@@ -304,3 +304,12 @@ Streamlit auto-reloads when you save a `.py` file. Browser tab updates live. No 
 ## License
 
 MIT. Do whatever you want with it.
+
+## Doctor — ตรวจระบบ + เตือน login หมดอายุ
+
+`health.py` (stdlib ล้วน) ตรวจ API :8787, หน้าเว็บ :3000, Claude login, LaunchAgents 2 ตัว, ดิสก์ และเตือนถ้าหน้าเว็บเปิดให้เครื่องอื่นเข้าได้
+- ดูผล: หน้า `/health` + แถบแดงบนสุดทุกหน้าเมื่อมีจุดที่พัง · เตือนเข้า LINE (`~/.config/dx/line-notify.json`) ครั้งเดียวต่อเหตุการณ์ + เตือนซ้ำทุก 6 ชม. + แจ้งเมื่อกลับมาปกติ
+- เซิร์ฟเวอร์รันลูปตรวจทุก 5 นาที (`server.py`) · ทดสอบ login จริง (haiku 1 ครั้ง) ทุก 6 ชม.
+- login ไม่มีวันหมดอายุให้อ่านตรงๆ (`claude auth status` ไม่บอก และเราไม่แตะไฟล์ credentials) จึงจับจาก: probe ล้ม / งานจริงล้มด้วย OAuth error / `loggedIn:false`
+- ซ่อมเอง: `python health.py --heal` เปิด API/web ที่ตายใหม่แบบเดียวกับ `เปิด Dashboard.command` (สูงสุด 3 ครั้ง/ชม./บริการ) — ต่อเข้า LaunchAgent เดิม (`queue-worker`, ทุก 60 วิ) ด้วยบรรทัดเดียวใน `queue_worker.py` เพื่อให้ทำงานแม้ API ตาย
+- ปิดแต่ละส่วนด้วย env: `DOCTOR_AUTOHEAL=0`, `DOCTOR_NOTIFY=0` · เทสต์: `.venv/bin/python -m unittest tests.test_health`

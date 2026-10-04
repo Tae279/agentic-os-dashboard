@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 import core
+import health as doctor  # alias: a route function below is also named `health`
 import monitors
 from config import (
     CLAUDE_CLI,
@@ -517,6 +518,7 @@ async def run_skill(request: Request):
                 await _terminate_process(proc)
 
         ok = error is None
+        doctor.record_run_result(ok, error)  # login-expiry signal for the doctor
         output = accumulated_text.strip() or "(no text output)"
         saved_path = None
         if ok:
@@ -672,3 +674,41 @@ async def kill_pid(request: Request):
 @app.get("/api/health")
 def health():
     return {"ok": True, "ts": time.time()}
+
+
+# ═══════════════════════════════════════════════════════════
+# Doctor — service health + Claude login watch (health.py)
+# ═══════════════════════════════════════════════════════════
+
+DOCTOR_LOOP_SEC = 300
+
+
+async def _doctor_loop():
+    await asyncio.sleep(20)  # let the server finish booting before the first pass
+    while True:
+        try:
+            await asyncio.to_thread(doctor.run_cycle, in_server=True)
+        except Exception:
+            pass  # the doctor must never take the API down
+        await asyncio.sleep(DOCTOR_LOOP_SEC)
+
+
+@app.on_event("startup")
+async def _start_doctor():
+    asyncio.create_task(_doctor_loop())
+
+
+@app.get("/api/doctor")
+def get_doctor():
+    return doctor.get_snapshot(in_server=True)
+
+
+@app.post("/api/doctor/run")
+async def run_doctor(request: Request):
+    """Re-check now. Body {"probe": true} also makes one real (tiny) Claude call to test the login."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    probe = True if body.get("probe") else False
+    return await asyncio.to_thread(doctor.run_cycle, in_server=True, probe=probe, do_heal=False, notify=probe)

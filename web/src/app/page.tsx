@@ -111,6 +111,12 @@ export default function Home() {
             >
               radar
             </Link>
+            <Link
+              href="/health"
+              className="px-3 py-1.5 rounded-[var(--radius-chip)] text-fg-dim hover:text-fg hover:bg-bg-card transition-colors"
+            >
+              ตรวจระบบ
+            </Link>
           </nav>
         </div>
         <QuickNavPills quickRoutes={quickRoutes} />
