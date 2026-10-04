@@ -88,3 +88,53 @@ Not viable: replacing ours with V2 (loses radar/phone/LINE), or `aos update`/mer
 - What `autostart on` installs on macOS (LaunchAgent name, what it starts).
 - Bridge auth model (`bridge-auth.mjs`) vs our CSRF/origin guard, if terminals (E) are chosen.
 - How V2 reads Claude/Codex usage (files vs API) compared with our `core.calc_usage_windows`.
+
+## Trial results (2026-10-05, run by Claude in worktree dazzling-montalcini-78de8c)
+
+Install: `~/agentic-os` cloned from the official origin (`6bfc219`, plugin 0.3.64 / HUD 2.0.0-preview.28). Run: `node aos.mjs setup --vault ~/agentic-os-trial-vault --provider claude --voice yes --autostart no` with `AOS_V2_PYTHON` = the Python 3.12.12 that uv already had (nothing installed; system Python 3.14 untouched). No V2 source edited (`git status` clean). Setup took ~10 min, everything downloaded (~1.3 GB voice + node packages). Autostart was NOT enabled; no V2 LaunchAgent exists. Port clash: none.
+
+### Results (PASS / FAIL / SKIP)
+
+| Item | Result | Evidence |
+|---|---|---|
+| Setup finishes, bridge :3219 + HUD :3217 + speech :3220 + monitor :3221 up | PASS | doctor lines "Bridge answering", "Jarvis HUD answering", "Voice service healthy" |
+| `node aos.mjs doctor` (plain) | PARTIAL: 1 fail left = Obsidian step only a human can do | `FAIL Plugin switched on in Obsidian - ready in this new vault, but Obsidian has not opened it yet`; all other lines PASS/SKIP |
+| claude / codex CLI detected and signed in | PASS | claude 2.1.287, codex-cli 0.153.4 |
+| HUD at http://127.0.0.1:3217 | PASS | page "Jarvis V2 — Galaxy Preview" rendered (Claude/Codex switch, skill buttons Plan Today / Inbox Brief / Deep Research / Content Cascade, tap-to-talk, terminals bar) |
+| Obsidian cockpit in trial vault | see below (needs Tae's click) | |
+| Voice, English speech-to-text out of the box | **FAIL, then fixed** | doctor: `Speech to text hears it back - status 500`. Root cause: `TypeError: open() got an unexpected keyword argument 'metadata_errors'` — `av` 19.0.1 installed (unpinned dependency of faster-whisper 1.2.1; `runner/speech-requirements.txt` does not pin it). Fix used: `pip install "av>=14,<17"` (got 16.1.0) inside the private voice venv `obsidian-v2/.runtime/speech-venv` (git-ignored runtime, not source), then `node aos.mjs stop/start`. After: English round trip "What is on my schedule today?" → PASS, doctor "hears it back - Voice Check 123". A fresh install on another day will hit the same bug until upstream pins `av`; `update`/`setup --voice yes` may reinstall av 19 and break it again. |
+| Thai speech recognition | **FAIL (by design)** | `runner/speech.py` loads the English-only model `small.en` and hardcodes `language='en'` in all three transcribe calls. Test: macOS Thai voice (Kanya) said "วันนี้ฉันมีนัดอะไรบ้าง" → V2 returned "One needs and may not arrive long." |
+| Thai spoken reply | **FAIL (by design)** | `/speak` hardcodes voice `bm_george`, `lang='en-gb'`. Kokoro v1.0 ships 54 voices in 9 language families (en-US, en-GB, es, fr, hi, it, ja, pt, zh) — no Thai voice. Thai text sent anyway gave a 32.9 s clip for one short sentence (unintelligible noise, not speech). Changing this means editing V2 source (`speech.py`) = breaks the stock-update rule (D2). |
+| Microphone permission / Control-Option-J hands-on | SKIP | needs Tae; low value because recognition is English-only |
+| Jev, `doctor --full`, Terminal plugin | SKIP | not in scope |
+
+### What setup wrote (read from `vault.mjs`, `setup.mjs`, and the resulting vault)
+
+- New vault `~/agentic-os-trial-vault` (3.4 MB, 18 template files + folders): `_index.md`, `CLAUDE.md`, `AGENTS.md`, `content/`, `daily-notes/`, `inbox/` (reports/, research/, voice/, notes/), `ops/`, `projects/`, `system/` (bases, metrics, queue, runs, schemas/daily-note.md, templates/daily.md, `v2/` with `profile.json`, `provider.json`, `current-conversations.json`, artifacts, backups, logs), `.agentic-os-v2.json`.
+- `.obsidian/` (only because the vault is new): `community-plugins.json` listing `agentic-os-v2`, `core-plugins.json`, `daily-notes.json`, and `.obsidian/plugins/agentic-os-v2/` (main.js 1.1 MB, styles, manifest, fonts, `bridge-auth.json`, `terminal-runtime.json` — credential-type files exist there, not opened).
+- For an EXISTING vault the code adds only missing template files/folders, never overwrites a note, never writes `.obsidian` settings (the plugin files are still installed into `.obsidian/plugins/agentic-os-v2/` and the plugin must be enabled by hand).
+- Outside the vault: everything under `~/agentic-os/obsidian-v2/.runtime/` (voice venv 268 MB, Kokoro models 348 MB, bridge auth, logs) and `~/agentic-os/**/node_modules`, `jarvis-v2/.next`; Whisper model `small.en` in `~/.cache/huggingface` (~460 MB). V2 itself reads (at run time, as its own feature) `~/.claude/.credentials.json` for the usage meter and login-expiry warning, and `~/.claude/.env` for optional metrics — I did not open either.
+
+### What `autostart on` would install on macOS (from `autostart.mjs`; NOT run)
+
+One per-user LaunchAgent: `~/Library/LaunchAgents/com.agentic-os-v2.recovery.plist`, label `com.agentic-os-v2.recovery`, `RunAtLoad`, `KeepAlive` on failure, runs `node obsidian-v2/runner/service-supervisor.mjs --config <runtime config>` with the PATH captured at install time; errors go to `.runtime/service-supervisor-startup-error.log`. The supervisor then starts/restarts bridge, HUD and speech. Removal: `node aos.mjs autostart off` (deletes the plist + `launchctl bootout`). It refuses to replace a login item owned by a different install. Existing DX agents `com.dx.agentic-os-queue-worker` and `com.dx.agentic-os-snapshot` are unrelated and untouched.
+
+### Stop / remove the trial
+
+```
+cd ~/agentic-os && node aos.mjs stop          # stops bridge, HUD, speech, monitor (pauses recovery)
+node aos.mjs autostart off                    # only needed if autostart was ever turned on (it was not)
+# full removal (asks Tae first, these delete files):
+rm -rf ~/agentic-os ~/agentic-os-trial-vault ~/.cache/huggingface/hub/models--Systran--faster-whisper-small.en
+```
+Obsidian: close the trial vault and, if it was added to the vault list, remove it there (Obsidian keeps its own list in `~/Library/Application Support/obsidian`). Nothing else on the Mac was changed.
+
+### Other facts for the decision
+
+- Tae's new hardware (Elgato Stream Deck+, Stream Deck Pedal, DJI Mic 3): V2's push-to-talk is a global hotkey (Ctrl+Alt+J on Mac, press once / pause to send), so a Stream Deck key or the pedal could send that hotkey, and the DJI Mic would be the input device — **both unverified, not tested**. But with English-only recognition and a British English voice, a Thai "AI controller" would need our own speech layer anyway (Whisper multilingual + a Thai voice), i.e. it is a DX add-on, not something stock V2 gives.
+
+## Final decision
+
+- **D3 (2026-10-05, Tae after seeing the Obsidian cockpit: "ไม่เอา กลับไปทางเดิม")** — V2 is dropped as a base. D2 is closed. Back to **D1**: the DX Command Center stays the only cockpit; port A (Claude login expiry warning) + B (health check / auto-recover) into it, with H (workflow rubrics) as cheap extras. Reasons: voice is English-only in and out, fixing that means editing V2 source (which ends owner updates), and the cockpit itself did not win Tae over.
+- Trial leftovers still on the Mac (not deleted, awaiting Tae's go): `~/agentic-os`, `~/agentic-os-trial-vault`, Whisper model cache, the trial entry in Obsidian's vault list (backup `obsidian.json.bak-2026-10-05`), and a vault registered by mistake at `~/Documents/DX/Obsidian` with a new `.obsidian/` folder. V2 services were stopped with `node aos.mjs stop` (its monitor on :3221 remains, recovery paused).
+- Remaining grill items for the D1 build: 9 (start at login), 10 (finish v11 plan first?), 11 (integration branch).
