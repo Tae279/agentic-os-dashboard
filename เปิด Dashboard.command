@@ -10,7 +10,7 @@ if ! lsof -i :$API -sTCP:LISTEN >/dev/null 2>&1; then
     nohup .venv/bin/python -m uvicorn server:app --host 127.0.0.1 --port $API >> .cache/uvicorn.log 2>&1 &
 fi
 if ! lsof -i :$WEB -sTCP:LISTEN >/dev/null 2>&1; then
-    ( cd web && nohup npm run start -- -p $WEB >> ../.cache/next.log 2>&1 & )
+    ( cd web && nohup npm run start -- -p $WEB -H 127.0.0.1 >> ../.cache/next.log 2>&1 & )
 fi
 
 echo "กำลังเปิด DX Agentic OS (v7)..."
