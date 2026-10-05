@@ -50,7 +50,7 @@ export function PromptHero({
         <button
           onClick={run}
           disabled={running || !prompt.trim()}
-          className="flex-1 py-2.5 rounded-[var(--radius-chip)] font-semibold text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 py-2.5 rounded-[var(--radius-chip)] font-semibold text-sm text-white transition-[opacity,box-shadow] disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg, var(--accent), var(--accent-deep))",
             boxShadow: running ? "none" : "0 0 24px -4px rgba(61,123,255,0.55)",

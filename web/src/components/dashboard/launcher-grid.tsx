@@ -95,7 +95,7 @@ export function LauncherGrid({
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.03, ease: "easeOut" }}
-                  className={`rounded-[var(--radius-card)] hairline hairline-hover bg-bg-card p-4 cursor-pointer transition-all hover:-translate-y-0.5 ${
+                  className={`rounded-[var(--radius-card)] hairline hairline-hover bg-bg-card p-4 cursor-pointer transition-[transform,box-shadow,border-color,background-color] hover:-translate-y-0.5 ${
                     state === "running" ? "glow-focal" : ""
                   }`}
                   onClick={() => handleCardClick(skill)}

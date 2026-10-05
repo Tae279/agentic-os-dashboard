@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { Bot } from "lucide-react";
 import { api } from "@/lib/api";
 
 const OBSIDIAN_VAULT = "DX AI Agent OS";
@@ -11,11 +11,8 @@ function obsidianUri(file: string) {
 
 export function Mascot() {
   return (
-    <div
-      className="h-9 w-9 shrink-0 rounded-[var(--radius-chip)] hairline bg-bg-card flex items-center justify-center overflow-hidden"
-      style={{ imageRendering: "pixelated" }}
-    >
-      <Image src="/robot-idle.png" alt="" width={24} height={24} style={{ imageRendering: "pixelated" }} unoptimized />
+    <div className="h-9 w-9 shrink-0 rounded-[var(--radius-chip)] hairline bg-bg-card flex items-center justify-center text-accent">
+      <Bot className="size-5" aria-hidden strokeWidth={1.75} />
     </div>
   );
 }
