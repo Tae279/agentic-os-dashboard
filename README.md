@@ -160,7 +160,7 @@ Run the FastAPI backend and production web app together:
 ./run.sh web
 ```
 
-Then open `http://localhost:3000/radar`. The backend runs locally on `127.0.0.1:8787`.
+Then open `http://localhost:3000/radar`. Both the backend (`127.0.0.1:8787`) and the web app (`-H 127.0.0.1`) listen on this machine only.
 
 Radar data lives in `dashboard-data/radar.json`. This file is gitignored because it contains machine-local project paths and prompts. To add a project, append an object to `projects` with the existing fields (`id`, `code`, `name`, status, progress, next step, facts, rules, links, and optional actions/apps/checklist). To add a runnable action, add an item to that project's `actions` array:
 
